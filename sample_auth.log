@@ -1,0 +1,26 @@
+Oct 15 10:30:15 server1 sshd[12345]: Failed password for root from 192.168.1.100 port 22 ssh2
+Oct 15 10:30:20 server1 sshd[12346]: Failed password for admin from 192.168.1.100 port 22 ssh2
+Oct 15 10:30:25 server1 sshd[12347]: Failed password for user from 192.168.1.100 port 22 ssh2
+Oct 15 10:30:30 server1 sshd[12348]: Failed password for test from 192.168.1.100 port 22 ssh2
+Oct 15 10:30:35 server1 sshd[12349]: Failed password for guest from 192.168.1.100 port 22 ssh2
+Oct 15 10:31:01 server1 kernel: [12345.678] SYN flood detected from 10.0.0.50
+Oct 15 10:31:02 server1 kernel: [12346.789] Port scan detected from 10.0.0.50
+Oct 15 10:31:03 server1 kernel: [12347.890] Multiple SYN packets from 10.0.0.50
+Oct 15 10:32:15 server1 apache2: 203.0.113.45 - - [15/Oct/2023:10:32:15 +0000] "GET /admin HTTP/1.1" 404 162
+Oct 15 10:32:16 server1 apache2: 203.0.113.45 - - [15/Oct/2023:10:32:16 +0000] "GET /wp-admin HTTP/1.1" 404 162
+Oct 15 10:32:17 server1 apache2: 203.0.113.45 - - [15/Oct/2023:10:32:17 +0000] "GET /administrator HTTP/1.1" 404 162
+Oct 15 10:32:18 server1 apache2: 203.0.113.45 - - [15/Oct/2023:10:32:18 +0000] "GET /phpmyadmin HTTP/1.1" 404 162
+Oct 15 10:32:19 server1 apache2: 203.0.113.45 - - [15/Oct/2023:10:32:19 +0000] "GET /.env HTTP/1.1" 404 162
+Oct 15 10:32:20 server1 apache2: 203.0.113.45 - - [15/Oct/2023:10:32:20 +0000] "GET /config.php HTTP/1.1" 404 162
+Oct 15 10:32:21 server1 apache2: 203.0.113.45 - - [15/Oct/2023:10:32:21 +0000] "GET /backup HTTP/1.1" 404 162
+Oct 15 10:33:45 server1 suricata: {"timestamp":"2023-10-15T10:33:45.123456+0000","flow_id":123456789,"event_type":"alert","src_ip":"198.51.100.10","src_port":54321,"dest_ip":"192.168.1.10","dest_port":22,"proto":"TCP","alert":{"action":"allowed","gid":1,"signature_id":2001219,"rev":20,"signature":"ET SCAN Nmap Scripting Engine User-Agent Detected","category":"Attempted Information Leak","severity":2}}
+Oct 15 10:34:00 server1 honeypot: Connection from 172.16.0.100 to SSH honeypot on port 2222
+Oct 15 10:34:01 server1 honeypot: Login attempt: root/password from 172.16.0.100
+Oct 15 10:34:02 server1 honeypot: Command executed by 172.16.0.100: whoami
+Oct 15 10:35:15 server1 sshd[12350]: Invalid user hacker from 198.51.100.20 port 22 ssh2
+Oct 15 10:35:20 server1 sshd[12351]: Failed password for invalid user hacker from 198.51.100.20 port 22 ssh2
+Oct 15 10:35:25 server1 sshd[12352]: Connection closed by 198.51.100.20 port 22 [preauth]
+Oct 15 10:36:10 server1 kernel: [12400.123] Possible SYN flooding on port 80. Sending cookies.
+Oct 15 10:36:11 server1 kernel: [12401.234] TCP: drop open request from 203.0.113.99/1234
+Oct 15 10:36:12 server1 kernel: [12402.345] TCP: drop open request from 203.0.113.99/1235
+Oct 15 10:36:13 server1 kernel: [12403.456] TCP: drop open request from 203.0.113.99/1236

@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Analysis - SecuAI</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-shield-check"></i> SecuAI
+            </a>
+            
+            <div class="navbar-nav me-auto">
+                <a class="nav-link" href="/">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+                <a class="nav-link" href="/alerts">
+                    <i class="bi bi-exclamation-triangle"></i> Alerts
+                </a>
+                <a class="nav-link" href="/blocks">
+                    <i class="bi bi-ban"></i> Blocks
+                </a>
+                <a class="nav-link active" href="/analysis">
+                    <i class="bi bi-search"></i> Analysis
+                </a>
+            </div>
+            
+            <div class="navbar-nav">
+                {% if current_user.is_authenticated %}
+                <span class="navbar-text me-3">
+                    <i class="bi bi-person-circle"></i> {{ current_user.username }}
+                </span>
+                <a class="nav-link" href="/admin">
+                    <i class="bi bi-gear"></i> Admin
+                </a>
+                <a class="nav-link" href="/logout">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Theme Toggle Button -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <i class="bi bi-moon-fill" id="theme-icon"></i>
+    </button>
+
+    <!-- Main Content -->
+    <div class="container-fluid mt-4">
+        <!-- Page Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="h3">
+                    <i class="bi bi-search text-primary"></i> Log Analysis
+                </h1>
+                <p class="text-muted">Analyze log files and text for security threats</p>
+            </div>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <!-- Left Column: File Upload -->
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-file-earmark-text"></i> File Upload Analysis
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="logfile" class="form-label">Select Log File:</label>
+                                <input type="file" class="form-control" id="logfile" name="logfile" 
+                                       accept=".log,.txt,.csv" required>
+                                <div class="form-text">
+                                    Supported formats: .log, .txt, .csv (Max: 16MB)
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-upload"></i> Upload & Analyze
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Text Analysis -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-textarea-t"></i> Text Analysis
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="log-text" class="form-label">Paste Log Entries:</label>
+                            <textarea class="form-control" id="log-text" rows="8" 
+                                placeholder="Paste your log entries here for real-time analysis..."></textarea>
+                        </div>
+                        <button type="button" class="btn btn-success w-100" onclick="analyzeLogText()">
+                            <i class="bi bi-cpu"></i> Analyze Text
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: API Testing & Results -->
+            <div class="col-lg-6">
+                <!-- API Testing -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-code"></i> API Testing
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="api-test-logs" class="form-label">Test Analysis API:</label>
+                            <textarea id="api-test-logs" class="form-control" rows="4" 
+                                placeholder="Enter sample logs for API testing...">Oct 15 10:30:15 server sshd[12345]: Failed password for root from 192.168.1.100 port 22 ssh2
+Oct 15 10:30:20 server sshd[12346]: Failed password for admin from 192.168.1.100 port 22 ssh2
+Oct 15 10:31:01 server kernel: SYN flood detected from 10.0.0.50</textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <button class="btn btn-primary w-100" onclick="testAnalysisAPI()">
+                                    <i class="bi bi-play"></i> Test Analysis API
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-outline-secondary w-100" onclick="clearApiResults()">
+                                    <i class="bi bi-x-circle"></i> Clear Results
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Block Testing -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-ban"></i> Block API Testing
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="test-ip" class="form-label">Test IP Address:</label>
+                            <input type="text" id="test-ip" class="form-control" 
+                                   placeholder="Enter IP to test (e.g., 203.0.113.1)" value="203.0.113.1">
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <button class="btn btn-warning w-100" onclick="testBlockAPI('recommend')">
+                                    <i class="bi bi-exclamation"></i> Test Recommend
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-danger w-100" onclick="testBlockAPI('approve')">
+                                    <i class="bi bi-ban"></i> Test Block
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Panel -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-terminal"></i> API Response
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="api-response-container" style="display: none;">
+                            <div class="mb-2">
+                                <span class="badge" id="response-status">Status</span>
+                                <small class="text-muted" id="response-time"></small>
+                            </div>
+                            <pre id="api-response" class="bg-light p-3 rounded mb-0" style="max-height: 300px; overflow-y: auto;"></pre>
+                        </div>
+                        <div id="no-response" class="text-center text-muted py-4">
+                            <i class="bi bi-terminal" style="font-size: 2rem;"></i>
+                            <p class="mt-2 mb-0">API responses will appear here</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Results -->
+        <div id="analysis-results" class="mt-4" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bar-chart"></i> Analysis Results
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="analysis-summary"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    
+    <script>
+        // Analysis functions
+        function analyzeLogText() {
+            const logText = document.getElementById('log-text').value.trim();
+            if (!logText) {
+                alert('Please enter some log text to analyze');
+                return;
+            }
+            
+            showLoading('Analyzing log text...');
+            
+            fetch('/api/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    log_text: logText
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                displayAnalysisResults(data);
+            })
+            .catch(error => {
+                hideLoading();
+                console.error('Error:', error);
+                alert('Analysis failed: ' + error.message);
+            });
+        }
+        
+        function testAnalysisAPI() {
+            const logText = document.getElementById('api-test-logs').value.trim();
+            if (!logText) {
+                alert('Please enter some log text to test');
+                return;
+            }
+            
+            const startTime = Date.now();
+            showApiLoading();
+            
+            fetch('/api/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    log_text: logText
+                })
+            })
+            .then(response => {
+                const endTime = Date.now();
+                const responseTime = endTime - startTime;
+                return response.json().then(data => ({ data, status: response.status, responseTime }));
+            })
+            .then(({ data, status, responseTime }) => {
+                hideApiLoading();
+                displayApiResponse(data, status, responseTime);
+            })
+            .catch(error => {
+                hideApiLoading();
+                console.error('Error:', error);
+                displayApiResponse({ error: error.message }, 500, 0);
+            });
+        }
+        
+        function testBlockAPI(action) {
+            const ip = document.getElementById('test-ip').value.trim();
+            if (!ip) {
+                alert('Please enter an IP address to test');
+                return;
+            }
+            
+            const startTime = Date.now();
+            showApiLoading();
+            
+            fetch('/api/block', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    ip: ip,
+                    action: action
+                })
+            })
+            .then(response => {
+                const endTime = Date.now();
+                const responseTime = endTime - startTime;
+                return response.json().then(data => ({ data, status: response.status, responseTime }));
+            })
+            .then(({ data, status, responseTime }) => {
+                hideApiLoading();
+                displayApiResponse(data, status, responseTime);
+            })
+            .catch(error => {
+                hideApiLoading();
+                console.error('Error:', error);
+                displayApiResponse({ error: error.message }, 500, 0);
+            });
+        }
+        
+        function displayApiResponse(data, status, responseTime) {
+            const container = document.getElementById('api-response-container');
+            const noResponse = document.getElementById('no-response');
+            const statusBadge = document.getElementById('response-status');
+            const timeElement = document.getElementById('response-time');
+            const responseElement = document.getElementById('api-response');
+            
+            // Show response container
+            container.style.display = 'block';
+            noResponse.style.display = 'none';
+            
+            // Update status badge
+            statusBadge.className = 'badge ' + (status === 200 ? 'bg-success' : 'bg-danger');
+            statusBadge.textContent = status === 200 ? 'Success' : 'Error';
+            
+            // Update response time
+            timeElement.textContent = `Response time: ${responseTime}ms`;
+            
+            // Display formatted JSON response
+            responseElement.textContent = JSON.stringify(data, null, 2);
+        }
+        
+        function displayAnalysisResults(data) {
+            const resultsDiv = document.getElementById('analysis-results');
+            const summaryDiv = document.getElementById('analysis-summary');
+            
+            if (data.status === 'success' && data.findings) {
+                let html = `<div class="alert alert-info">
+                    <strong>Analysis Complete:</strong> Found ${data.count} security findings
+                </div>`;
+                
+                if (data.findings.length > 0) {
+                    html += '<div class="row">';
+                    data.findings.forEach((finding, index) => {
+                        const confidencePercent = Math.round(finding.confidence * 100);
+                        const badgeClass = confidencePercent >= 80 ? 'bg-danger' : 
+                                          confidencePercent >= 60 ? 'bg-warning' : 'bg-info';
+                        
+                        html += `
+                        <div class="col-md-6 mb-3">
+                            <div class="card border">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <code>${finding.ip}</code>
+                                        <span class="badge ${badgeClass}">${confidencePercent}%</span>
+                                    </h6>
+                                    <p class="card-text">${finding.reason}</p>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-warning" onclick="recommendBlock('${finding.ip}')">
+                                            Recommend Block
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="approveBlock('${finding.ip}')">
+                                            Block Now
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                    });
+                    html += '</div>';
+                } else {
+                    html += '<div class="alert alert-success">No security threats detected in the analyzed logs.</div>';
+                }
+                
+                summaryDiv.innerHTML = html;
+                resultsDiv.style.display = 'block';
+            } else {
+                summaryDiv.innerHTML = `<div class="alert alert-danger">
+                    Analysis failed: ${data.error || 'Unknown error'}
+                </div>`;
+                resultsDiv.style.display = 'block';
+            }
+        }
+        
+        function clearApiResults() {
+            document.getElementById('api-response-container').style.display = 'none';
+            document.getElementById('no-response').style.display = 'block';
+        }
+        
+        function showLoading(message) {
+            // You can implement a loading spinner here
+            console.log('Loading:', message);
+        }
+        
+        function hideLoading() {
+            console.log('Loading complete');
+        }
+        
+        function showApiLoading() {
+            const container = document.getElementById('api-response-container');
+            const responseElement = document.getElementById('api-response');
+            container.style.display = 'block';
+            document.getElementById('no-response').style.display = 'none';
+            responseElement.textContent = 'Loading...';
+        }
+        
+        function hideApiLoading() {
+            // Loading complete - response will be shown by displayApiResponse
+        }
+    </script>
+</body>
+</html>

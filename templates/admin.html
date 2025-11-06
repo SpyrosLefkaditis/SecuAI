@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecuAI Admin Panel</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-shield-check"></i> SecuAI
+            </a>
+            
+            <div class="navbar-nav me-auto">
+                <a class="nav-link" href="/">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+                <a class="nav-link" href="/alerts">
+                    <i class="bi bi-exclamation-triangle"></i> Alerts
+                </a>
+                <a class="nav-link" href="/blocks">
+                    <i class="bi bi-ban"></i> Blocks
+                </a>
+                <a class="nav-link" href="/analysis">
+                    <i class="bi bi-search"></i> Analysis
+                </a>
+            </div>
+            
+            <div class="navbar-nav">
+                {% if current_user.is_authenticated %}
+                <span class="navbar-text me-3">
+                    <i class="bi bi-person-circle"></i> {{ current_user.username }}
+                </span>
+                <a class="nav-link active" href="/admin">
+                    <i class="bi bi-gear"></i> Admin
+                </a>
+                <a class="nav-link" href="/logout">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    <i class="bi bi-info-circle"></i> {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Admin Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <h3><i class="bi bi-gear"></i> Administration Panel</h3>
+                        <p class="mb-0">Manage security policies, review alerts, and configure system settings</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Tabs -->
+        <ul class="nav nav-tabs" id="adminTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="alerts-tab" data-bs-toggle="tab" data-bs-target="#alerts-panel" 
+                        type="button" role="tab">
+                    <i class="bi bi-exclamation-triangle"></i> Alert Management
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="whitelist-tab" data-bs-toggle="tab" data-bs-target="#whitelist-panel" 
+                        type="button" role="tab">
+                    <i class="bi bi-shield-check"></i> Whitelist
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="audit-tab" data-bs-toggle="tab" data-bs-target="#audit-panel" 
+                        type="button" role="tab">
+                    <i class="bi bi-journal-text"></i> Audit Log
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="config-tab" data-bs-toggle="tab" data-bs-target="#config-panel" 
+                        type="button" role="tab">
+                    <i class="bi bi-sliders"></i> Configuration
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="adminTabContent">
+            <!-- Alert Management Tab -->
+            <div class="tab-pane fade show active" id="alerts-panel" role="tabpanel">
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Security Alert Management</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Timestamp</th>
+                                        <th>IP Address</th>
+                                        <th>Threat Type</th>
+                                        <th>Confidence</th>
+                                        <th>Source</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for alert in alerts %}
+                                    <tr>
+                                        <td>{{ alert.id }}</td>
+                                        <td>
+                                            <small>{{ alert.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ alert.ip }}</span>
+                                        </td>
+                                        <td>{{ alert.reason }}</td>
+                                        <td>
+                                            {% set confidence_percent = (alert.confidence * 100) | int %}
+                                            {% if confidence_percent >= 80 %}
+                                                <span class="badge bg-danger">{{ confidence_percent }}%</span>
+                                            {% elif confidence_percent >= 60 %}
+                                                <span class="badge bg-warning">{{ confidence_percent }}%</span>
+                                            {% else %}
+                                                <span class="badge bg-info">{{ confidence_percent }}%</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ alert.source }}</small>
+                                        </td>
+                                        <td>
+                                            {% if alert.status == 'new' %}
+                                                <span class="badge bg-primary">New</span>
+                                            {% elif alert.status == 'reviewed' %}
+                                                <span class="badge bg-success">Reviewed</span>
+                                            {% elif alert.status == 'ignored' %}
+                                                <span class="badge bg-secondary">Ignored</span>
+                                            {% elif alert.status == 'blocked' %}
+                                                <span class="badge bg-danger">Blocked</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                {% if alert.status == 'new' %}
+                                                <button class="btn btn-sm btn-success" 
+                                                        onclick="reviewAlert({{ alert.id }})">
+                                                    <i class="bi bi-check"></i> Review
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" 
+                                                        onclick="blockFromAlert('{{ alert.ip }}', {{ alert.id }})">
+                                                    <i class="bi bi-ban"></i> Block
+                                                </button>
+                                                {% endif %}
+                                                <button class="btn btn-sm btn-info" 
+                                                        onclick="viewAlertDetails({{ alert.id }})">
+                                                    <i class="bi bi-eye"></i> Details
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Whitelist Management Tab -->
+            <div class="tab-pane fade" id="whitelist-panel" role="tabpanel">
+                <div class="card mt-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">IP Whitelist Management</h5>
+                        <button class="btn btn-success" onclick="showAddWhitelistModal()">
+                            <i class="bi bi-plus"></i> Add IP
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>IP Address</th>
+                                        <th>Description</th>
+                                        <th>Added</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for entry in whitelist %}
+                                    <tr>
+                                        <td><span class="badge bg-success">{{ entry.ip }}</span></td>
+                                        <td>{{ entry.description or 'No description' }}</td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ entry.created_at.strftime('%Y-%m-%d') }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if entry.is_active %}
+                                                <span class="badge bg-success">Active</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inactive</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                {% if entry.is_active %}
+                                                <button class="btn btn-sm btn-warning" 
+                                                        onclick="toggleWhitelist({{ entry.id }}, false)">
+                                                    <i class="bi bi-pause"></i> Disable
+                                                </button>
+                                                {% else %}
+                                                <button class="btn btn-sm btn-success" 
+                                                        onclick="toggleWhitelist({{ entry.id }}, true)">
+                                                    <i class="bi bi-play"></i> Enable
+                                                </button>
+                                                {% endif %}
+                                                <button class="btn btn-sm btn-danger" 
+                                                        onclick="deleteWhitelist({{ entry.id }})">
+                                                    <i class="bi bi-trash"></i> Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audit Log Tab -->
+            <div class="tab-pane fade" id="audit-panel" role="tabpanel">
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">System Audit Log</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>Action</th>
+                                        <th>Details</th>
+                                        <th>User</th>
+                                        <th>IP</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in audit_logs %}
+                                    <tr>
+                                        <td>
+                                            <small>{{ log.created_at.strftime('%m/%d %H:%M:%S') }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ log.action }}</span>
+                                        </td>
+                                        <td>
+                                            <small>{{ log.details[:100] }}{% if log.details|length > 100 %}...{% endif %}</small>
+                                        </td>
+                                        <td>
+                                            {% if log.user %}
+                                                <small>{{ log.user.email }}</small>
+                                            {% else %}
+                                                <small class="text-muted">System</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if log.ip_address %}
+                                                <small class="text-muted">{{ log.ip_address }}</small>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Tab -->
+            <div class="tab-pane fade" id="config-panel" role="tabpanel">
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">System Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Blocking Configuration</h6>
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="simulate-blocks" checked>
+                                            <label class="form-check-label" for="simulate-blocks">
+                                                Simulation Mode (Safe)
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="auto-block" disabled>
+                                            <label class="form-check-label" for="auto-block">
+                                                Automatic Blocking (Disabled)
+                                            </label>
+                                        </div>
+                                        <div class="mt-3">
+                                            <label class="form-label">Confidence Threshold</label>
+                                            <input type="range" class="form-range" id="confidence-threshold" 
+                                                   min="0.5" max="1.0" step="0.1" value="0.8">
+                                            <div class="form-text">Current: <span id="threshold-value">0.8</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h6>Security Settings</h6>
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div class="alert alert-warning">
+                                            <i class="bi bi-exclamation-triangle"></i>
+                                            <strong>Security Notice:</strong><br>
+                                            Default admin credentials are active:<br>
+                                            <code>admin@secai.local / ChangeMe123!</code><br>
+                                            <strong>Change immediately in production!</strong>
+                                        </div>
+                                        
+                                        <button class="btn btn-primary" onclick="showChangePasswordModal()">
+                                            <i class="bi bi-key"></i> Change Password
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <h6>System Status</h6>
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-3">
+                                                <div class="text-center">
+                                                    <i class="bi bi-database fs-2 text-success"></i>
+                                                    <p class="mb-0">Database</p>
+                                                    <small class="text-success">Connected</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="text-center">
+                                                    <i class="bi bi-shield-check fs-2 text-success"></i>
+                                                    <p class="mb-0">Analyzer</p>
+                                                    <small class="text-success">Running</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="text-center">
+                                                    <i class="bi bi-cloud fs-2 text-info"></i>
+                                                    <p class="mb-0">ML Service</p>
+                                                    <small class="text-info">Mock Mode</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="text-center">
+                                                    <i class="bi bi-bug fs-2 text-success"></i>
+                                                    <p class="mb-0">Honeypot</p>
+                                                    <small class="text-success">Active</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Whitelist Modal -->
+    <div class="modal fade" id="addWhitelistModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add IP to Whitelist</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="add-whitelist-form">
+                        <div class="mb-3">
+                            <label for="whitelist-ip" class="form-label">IP Address</label>
+                            <input type="text" class="form-control" id="whitelist-ip" required
+                                   placeholder="192.168.1.100 or 10.0.0.0/24">
+                        </div>
+                        <div class="mb-3">
+                            <label for="whitelist-description" class="form-label">Description</label>
+                            <input type="text" class="form-control" id="whitelist-description"
+                                   placeholder="e.g., Office network gateway">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" onclick="addToWhitelist()">Add to Whitelist</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Details Modal -->
+    <div class="modal fade" id="alertDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Alert Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="alert-details-content">
+                        <!-- Content will be loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theme Toggle Button -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <i class="bi bi-moon-fill" id="theme-icon"></i>
+    </button>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+</body>
+</html>

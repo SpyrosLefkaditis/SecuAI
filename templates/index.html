@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecuAI - Security Monitoring Dashboard</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-shield-check"></i> SecuAI
+                <span class="badge bg-success ms-2">MVP</span>
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="scrollToSection('alerts')">
+                            <i class="bi bi-exclamation-triangle"></i> Alerts
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="scrollToSection('blocks')">
+                            <i class="bi bi-ban"></i> Blocks
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="scrollToSection('honeypot')">
+                            <i class="bi bi-bug"></i> Honeypot
+                        </a>
+                    </li>
+                </ul>
+                
+                <ul class="navbar-nav">
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item">
+                        <span class="navbar-text me-3">
+                            <i class="bi bi-person-circle"></i> Welcome, {{ current_user.username }}
+                        </span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin">
+                            <i class="bi bi-gear"></i> Admin
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/login">
+                            <i class="bi bi-box-arrow-in-right"></i> Login
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid mt-4">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    <i class="bi bi-info-circle"></i> {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title">{{ stats.alerts_today }}</h4>
+                                <p class="card-text">Alerts Today</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-exclamation-triangle fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card bg-danger text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title">{{ stats.critical_alerts }}</h4>
+                                <p class="card-text">Critical Alerts</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-exclamation-circle fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card bg-warning text-dark">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title">{{ stats.blocked_ips }}</h4>
+                                <p class="card-text">Blocked IPs</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-ban fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h4 class="card-title" id="system-status">Online</h4>
+                                <p class="card-text">System Status</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="bi bi-shield-check fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Left Column: Log Analysis and Alerts -->
+            <div class="col-lg-8">
+                <!-- Log Analysis Section -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-search"></i> Log Analysis
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- File Upload -->
+                        <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data" class="mb-3">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <input type="file" class="form-control" id="logfile" name="logfile" accept=".log,.txt">
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="bi bi-upload"></i> Upload & Analyze
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+
+                        <!-- Text Analysis -->
+                        <div class="mb-3">
+                            <label for="log-text" class="form-label">Or paste log text:</label>
+                            <textarea class="form-control" id="log-text" rows="4" 
+                                placeholder="Paste your log entries here for real-time analysis..."></textarea>
+                        </div>
+                        
+                        <button type="button" class="btn btn-success" onclick="analyzeLogText()">
+                            <i class="bi bi-cpu"></i> Analyze Text
+                        </button>
+                        
+                        <!-- Analysis Results -->
+                        <div id="analysis-results" class="mt-3" style="display: none;">
+                            <h6>Analysis Results:</h6>
+                            <div class="alert alert-info">
+                                <div id="analysis-summary"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Alerts -->
+                <div class="card" id="alerts">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-exclamation-triangle"></i> Recent Security Alerts
+                        </h5>
+                        <button class="btn btn-sm btn-outline-primary" onclick="refreshAlerts()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>IP Address</th>
+                                        <th>Threat</th>
+                                        <th>Confidence</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="alerts-table">
+                                    {% for alert in alerts %}
+                                    <tr>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ alert.created_at.strftime('%m/%d %H:%M') }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ alert.ip }}</span>
+                                        </td>
+                                        <td>{{ alert.reason }}</td>
+                                        <td>
+                                            <div class="progress" style="width: 100px; height: 20px;">
+                                                {% set confidence_percent = (alert.confidence * 100) | int %}
+                                                {% if confidence_percent >= 80 %}
+                                                    {% set progress_class = 'bg-danger' %}
+                                                {% elif confidence_percent >= 60 %}
+                                                    {% set progress_class = 'bg-warning' %}
+                                                {% else %}
+                                                    {% set progress_class = 'bg-info' %}
+                                                {% endif %}
+                                                <div class="progress-bar {{ progress_class }}" 
+                                                     role="progressbar" 
+                                                     style="width: {{ confidence_percent }}%"
+                                                     aria-valuenow="{{ confidence_percent }}" 
+                                                     aria-valuemin="0" 
+                                                     aria-valuemax="100">
+                                                    {{ confidence_percent }}%
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-warning" 
+                                                        onclick="recommendBlock('{{ alert.ip }}')">
+                                                    <i class="bi bi-exclamation"></i> Recommend
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" 
+                                                        onclick="approveBlock('{{ alert.ip }}')">
+                                                    <i class="bi bi-ban"></i> Block
+                                                </button>
+                                                <button class="btn btn-sm btn-secondary" 
+                                                        onclick="ignoreAlert('{{ alert.id }}')">
+                                                    <i class="bi bi-x"></i> Ignore
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% if not alerts %}
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">
+                                            <i class="bi bi-info-circle"></i> No recent alerts
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Blocks and Honeypot -->
+            <div class="col-lg-4">
+                <!-- Active Blocks -->
+                <div class="card mb-4" id="blocks">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-ban"></i> Active Blocks
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="blocks-list">
+                            {% for block in blocks %}
+                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                                <div>
+                                    <strong>{{ block.ip }}</strong><br>
+                                    <small class="text-muted">
+                                        {{ block.created_at.strftime('%m/%d %H:%M') }}
+                                        {% if not block.applied %}
+                                        <span class="badge bg-warning">Simulated</span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        onclick="unblockIP('{{ block.ip }}')">
+                                    <i class="bi bi-unlock"></i>
+                                </button>
+                            </div>
+                            {% endfor %}
+                            {% if not blocks %}
+                            <div class="text-center text-muted">
+                                <i class="bi bi-info-circle"></i> No active blocks
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Honeypot Feed -->
+                <div class="card" id="honeypot">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-bug"></i> Honeypot Feed
+                        </h5>
+                        <button class="btn btn-sm btn-outline-success" onclick="loadHoneypotFeed()">
+                            <i class="bi bi-download"></i> Load Feed
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="honeypot-status" class="mb-3">
+                            <span class="badge bg-success">Active</span>
+                            <small class="text-muted ms-2">Monitoring threats...</small>
+                        </div>
+                        
+                        <div id="honeypot-data">
+                            <div class="text-center text-muted">
+                                <i class="bi bi-cloud-download"></i><br>
+                                Click "Load Feed" to fetch latest threat intelligence
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Demo Section -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-code"></i> API Demo & Testing
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Analysis API</h6>
+                                <p class="text-muted">Test the log analysis API directly:</p>
+                                <div class="mb-3">
+                                    <textarea id="api-test-logs" class="form-control" rows="3" 
+                                        placeholder="Enter sample logs for API testing...">Oct 15 10:30:15 server sshd[12345]: Failed password for root from 192.168.1.100 port 22 ssh2
+Oct 15 10:30:20 server sshd[12346]: Failed password for admin from 192.168.1.100 port 22 ssh2</textarea>
+                                </div>
+                                <button class="btn btn-primary" onclick="testAnalysisAPI()">Test API</button>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Block API</h6>
+                                <p class="text-muted">Test blocking operations:</p>
+                                <div class="mb-3">
+                                    <input type="text" id="test-ip" class="form-control" 
+                                           placeholder="IP to test (e.g., 203.0.113.1)" value="203.0.113.1">
+                                </div>
+                                <div class="btn-group">
+                                    <button class="btn btn-warning" onclick="testBlockAPI('recommend')">Recommend</button>
+                                    <button class="btn btn-danger" onclick="testBlockAPI('approve')">Approve</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h6>API Response:</h6>
+                            <pre id="api-response" class="bg-light p-3 rounded" style="display: none;"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-5 py-4 bg-dark text-light">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>SecuAI</h5>
+                    <p class="text-muted">Log & Network Anomaly Detection System</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p class="text-muted">
+                        <i class="bi bi-shield-check"></i> Hackathon MVP Version<br>
+                        <small>⚠️ For testing purposes only</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Theme Toggle Button -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <i class="bi bi-moon-fill" id="theme-icon"></i>
+    </button>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  # SecuAI Main Application
+  secuai:
+    build: .
+    container_name: secuai-app
+    ports:
+      - "5000:5000"
+    environment:
+      - SECRET_KEY=development-key-change-in-production
+      - ADMIN_EMAIL=admin@secuai.local
+      - ADMIN_PASSWORD=ChangeMe123!
+      - SIMULATE_BLOCKS=true
+      - DEBUG=true
+      - ML_ENABLED=false
+      - REAL_BLOCKING_ENABLED=false
+      - CONFIDENCE_THRESHOLD=0.7
+    volumes:
+      # Mount database file for persistence
+      - secuai_data:/app
+      # Mount log files for analysis (optional)
+      - ./sample_logs:/app/sample_logs:ro
+      # Mount uploads directory
+      - ./uploads:/app/uploads
+    networks:
+      - secuai-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.secuai.description=SecuAI Log and Network Anomaly Detector"
+      - "com.secuai.version=1.0-mvp"
+
+  # Optional: Redis for session storage in production
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: secuai-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - secuai-network
+  #   restart: unless-stopped
+  #   command: redis-server --appendonly yes
+
+  # Optional: PostgreSQL for production database
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: secuai-postgres
+  #   environment:
+  #     - POSTGRES_DB=secuai
+  #     - POSTGRES_USER=secuai
+  #     - POSTGRES_PASSWORD=change_this_password
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - secuai-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U secuai"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+
+  # Log file simulator for testing
+  log-simulator:
+    image: alpine:latest
+    container_name: secuai-log-simulator
+    volumes:
+      - ./sample_logs:/logs
+    networks:
+      - secuai-network
+    command: >
+      sh -c "
+        echo 'Starting log simulator...' &&
+        mkdir -p /logs &&
+        while true; do
+          echo \"`date` secuai-simulator sshd[$$]: Failed password for root from 203.0.113.`shuf -i 1-254 -n 1` port 22 ssh2\" >> /logs/simulated.log;
+          sleep `shuf -i 10-60 -n 1`;
+        done
+      "
+    restart: unless-stopped
+    profiles:
+      - simulator
+
+  # Nginx reverse proxy (optional, for production)
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: secuai-nginx
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   networks:
+  #     - secuai-network
+  #   depends_on:
+  #     - secuai
+  #   restart: unless-stopped
+
+networks:
+  secuai-network:
+    driver: bridge
+    labels:
+      - "com.secuai.description=SecuAI internal network"
+
+volumes:
+  secuai_data:
+    driver: local
+    labels:
+      - "com.secuai.description=SecuAI application data and SQLite database"
+  
+  # redis_data:
+  #   driver: local
+  #   labels:
+  #     - "com.secuai.description=Redis session storage"
+  
+  # postgres_data:
+  #   driver: local
+  #   labels:
+  #     - "com.secuai.description=PostgreSQL database storage"
+
+# Usage:
+# Development: docker-compose up -d
+# With log simulator: docker-compose --profile simulator up -d
+# Production: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Stop: docker-compose down
+# Stop with data cleanup: docker-compose down -v
+
+# Commands:
+# View logs: docker-compose logs -f secuai
+# Access container: docker-compose exec secuai bash
+# Database backup: docker-compose exec secuai python -c "import sqlite3; ..."

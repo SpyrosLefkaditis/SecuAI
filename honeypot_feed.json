@@ -1,0 +1,42 @@
+{
+  "feed_name": "SecuAI Demo Honeypot",
+  "last_updated": "2025-11-05T23:51:18.652753",
+  "ips": [
+    {
+      "ip": "172.16.0.100",
+      "first_seen": "2023-10-15T10:34:00Z",
+      "last_seen": "2023-10-15T10:34:30Z",
+      "attacks": [
+        "ssh_bruteforce",
+        "command_execution"
+      ],
+      "severity": "high",
+      "country": "Unknown",
+      "asn": "AS12345"
+    },
+    {
+      "ip": "203.0.113.200",
+      "first_seen": "2023-10-15T09:15:00Z",
+      "last_seen": "2023-10-15T09:45:00Z",
+      "attacks": [
+        "web_scanning",
+        "sql_injection_attempt"
+      ],
+      "severity": "medium",
+      "country": "RU",
+      "asn": "AS54321"
+    },
+    {
+      "ip": "198.51.100.150",
+      "first_seen": "2023-10-15T08:30:00Z",
+      "last_seen": "2023-10-15T11:00:00Z",
+      "attacks": [
+        "port_scan",
+        "service_enumeration"
+      ],
+      "severity": "high",
+      "country": "CN",
+      "asn": "AS9999"
+    }
+  ]
+}
