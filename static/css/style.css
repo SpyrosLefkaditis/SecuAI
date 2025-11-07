@@ -29,26 +29,27 @@
     --info: 200 95% 40%;
 }
 
-[data-theme="dark"] {
-    /* Dark theme colors */
-    --background: 240 10% 4%;
+/* Force dark theme as default */
+:root, [data-theme="dark"] {
+    /* Pure black background theme */
+    --background: 0 0% 0%;
     --foreground: 0 0% 98%;
-    --card: 240 10% 4%;
+    --card: 0 0% 3%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 4%;
+    --popover: 0 0% 3%;
     --popover-foreground: 0 0% 98%;
-    --primary: 142 86% 28%;
-    --primary-foreground: 356 29% 98%;
-    --secondary: 240 4% 16%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 9%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 4% 16%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 240 4% 16%;
+    --muted: 0 0% 9%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 0 0% 9%;
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 63% 31%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 4% 16%;
-    --input: 240 4% 16%;
+    --border: 0 0% 15%;
+    --input: 0 0% 9%;
     --ring: 142 86% 28%;
 }
 
@@ -513,4 +514,103 @@ footer {
 
 .border-left-warning {
     border-left: 4px solid var(--warning-color) !important;
+}
+
+/* Force Pure Black Theme Bootstrap Overrides */
+.navbar-dark {
+    background-color: #000000 !important;
+}
+
+.bg-dark {
+    background-color: #000000 !important;
+}
+
+.bg-secondary {
+    background-color: #0a0a0a !important;
+}
+
+.bg-light {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+}
+
+.text-muted {
+    color: #888888 !important;
+}
+
+.card {
+    background-color: #0a0a0a !important;
+    border-color: #333333 !important;
+    color: #ffffff !important;
+}
+
+.card-header {
+    background-color: #000000 !important;
+    border-bottom-color: #333333 !important;
+    color: #ffffff !important;
+}
+
+.table-dark {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+}
+
+.table-dark th,
+.table-dark td {
+    border-color: #333333 !important;
+}
+
+.form-control {
+    background-color: #1a1a1a !important;
+    border-color: #333333 !important;
+    color: #ffffff !important;
+}
+
+.form-control:focus {
+    background-color: #1a1a1a !important;
+    border-color: #555555 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.1) !important;
+}
+
+.modal-content {
+    background-color: #0a0a0a !important;
+    border-color: #333333 !important;
+    color: #ffffff !important;
+}
+
+.modal-header {
+    border-bottom-color: #333333 !important;
+}
+
+.modal-footer {
+    border-top-color: #333333 !important;
+}
+
+.alert {
+    border-color: #333333 !important;
+}
+
+.alert-info {
+    background-color: #1a1a1a !important;
+    border-color: #0066cc !important;
+    color: #ffffff !important;
+}
+
+.alert-success {
+    background-color: #1a1a1a !important;
+    border-color: #22c55e !important;
+    color: #ffffff !important;
+}
+
+.alert-danger {
+    background-color: #1a1a1a !important;
+    border-color: #ef4444 !important;
+    color: #ffffff !important;
+}
+
+.alert-warning {
+    background-color: #1a1a1a !important;
+    border-color: #f59e0b !important;
+    color: #ffffff !important;
 }

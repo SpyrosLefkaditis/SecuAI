@@ -17,6 +17,7 @@ from decouple import config
 from models import db, User, Alert, Block, AuditLog, Whitelist
 from analyzer import analyze_logs, ml_enrich
 from agents.host_blocker import simulate_block, can_apply_real_block
+from firewall_manager import firewall_manager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -59,9 +60,6 @@ def dashboard():
         critical_alerts = Alert.query.filter(Alert.confidence >= 0.8).count()
         blocked_ips = Block.query.filter(Block.is_active == True).count()
         
-        # Get recent alerts
-        recent_alerts = Alert.query.order_by(Alert.created_at.desc()).limit(10).all()
-        
         # Get recent blocks
         recent_blocks = Block.query.filter(Block.is_active == True).order_by(Block.created_at.desc()).limit(5).all()
         
@@ -71,10 +69,10 @@ def dashboard():
             'blocked_ips': blocked_ips
         }
         
-        return render_template('index.html', stats=stats, alerts=recent_alerts, blocks=recent_blocks)
+        return render_template('index.html', stats=stats, blocks=recent_blocks)
     except Exception as e:
         logger.error(f"Dashboard error: {e}")
-        return render_template('index.html', stats={'alerts_today': 0, 'critical_alerts': 0, 'blocked_ips': 0}, alerts=[], blocks=[])
+        return render_template('index.html', stats={'alerts_today': 0, 'critical_alerts': 0, 'blocked_ips': 0}, blocks=[])
 
 
 @app.route('/api/analyze', methods=['POST'])
@@ -415,6 +413,33 @@ def analysis_page():
         return redirect(url_for('dashboard'))
 
 
+@app.route('/firewall')
+@app.route('/firewall/')
+@login_required
+def firewall_page():
+    """Firewall management page"""
+    try:
+        # Get blacklisted IPs from database
+        blacklisted_ips = Block.query.filter(Block.is_active == True).order_by(Block.created_at.desc()).all()
+        
+        # Get whitelisted IPs from database  
+        whitelisted_ips = Whitelist.query.filter(Whitelist.is_active == True).order_by(Whitelist.created_at.desc()).all()
+        
+        # Get recent security alerts
+        recent_alerts = Alert.query.order_by(Alert.created_at.desc()).limit(10).all()
+        
+        return render_template('firewall.html', 
+                             blacklisted_ips=blacklisted_ips,
+                             whitelisted_ips=whitelisted_ips,
+                             recent_alerts=recent_alerts,
+                             blacklisted_count=len(blacklisted_ips),
+                             whitelisted_count=len(whitelisted_ips))
+    except Exception as e:
+        logger.error(f"Firewall page error: {e}")
+        flash(f'Error loading firewall page: {str(e)}')
+        return redirect(url_for('dashboard'))
+
+
 @app.route('/admin')
 @login_required
 def admin():
@@ -444,7 +469,159 @@ def admin():
         return redirect(url_for('dashboard'))
 
 
+# Firewall API Endpoints
+@app.route('/api/firewall/blacklist', methods=['POST'])
+@login_required
+def api_firewall_blacklist():
+    """Add IP to blacklist via firewall manager"""
+    try:
+        data = request.get_json()
+        ip = data.get('ip', '').strip()
+        reason = data.get('reason', 'Manual block')
+        
+        if not ip:
+            return jsonify({'status': 'error', 'error': 'IP address is required'})
+        
+        # Use firewall manager to block IP
+        result = firewall_manager.block_ip(ip, reason)
+        
+        if result['status'] == 'success':
+            # Also save to database
+            existing_block = Block.query.filter_by(ip=ip).first()
+            if existing_block:
+                existing_block.is_active = True
+                existing_block.reason = reason
+                existing_block.created_at = datetime.utcnow()
+            else:
+                new_block = Block(
+                    ip=ip,
+                    reason=reason,
+                    is_active=True
+                )
+                db.session.add(new_block)
+            
+            db.session.commit()
+            
+            # Log the action
+            audit_log = AuditLog(
+                user_id=current_user.id,
+                action='firewall_block',
+                details=f'Blocked IP {ip} - {reason}',
+                ip_address=request.remote_addr
+            )
+            db.session.add(audit_log)
+            db.session.commit()
+            
+            logger.info(f"User {current_user.username} blocked IP {ip} via firewall")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Firewall blacklist API error: {e}")
+        return jsonify({'status': 'error', 'error': str(e)})
 
+
+@app.route('/api/firewall/whitelist', methods=['POST'])
+@login_required
+def api_firewall_whitelist():
+    """Add IP to whitelist via firewall manager"""
+    try:
+        data = request.get_json()
+        ip = data.get('ip', '').strip()
+        description = data.get('description', 'Manual whitelist')
+        
+        if not ip:
+            return jsonify({'status': 'error', 'error': 'IP address is required'})
+        
+        # Use firewall manager to whitelist IP
+        result = firewall_manager.whitelist_ip(ip, description)
+        
+        if result['status'] == 'success':
+            # Also save to database
+            existing_whitelist = Whitelist.query.filter_by(ip=ip).first()
+            if existing_whitelist:
+                existing_whitelist.is_active = True
+                existing_whitelist.description = description
+                existing_whitelist.created_at = datetime.utcnow()
+            else:
+                new_whitelist = Whitelist(
+                    ip=ip,
+                    description=description,
+                    is_active=True
+                )
+                db.session.add(new_whitelist)
+            
+            db.session.commit()
+            
+            # Log the action
+            audit_log = AuditLog(
+                user_id=current_user.id,
+                action='firewall_whitelist',
+                details=f'Whitelisted IP {ip} - {description}',
+                ip_address=request.remote_addr
+            )
+            db.session.add(audit_log)
+            db.session.commit()
+            
+            logger.info(f"User {current_user.username} whitelisted IP {ip} via firewall")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Firewall whitelist API error: {e}")
+        return jsonify({'status': 'error', 'error': str(e)})
+
+
+@app.route('/api/firewall/unblock', methods=['POST'])
+@login_required
+def api_firewall_unblock():
+    """Remove IP from blacklist via firewall manager"""
+    try:
+        data = request.get_json()
+        ip = data.get('ip', '').strip()
+        
+        if not ip:
+            return jsonify({'status': 'error', 'error': 'IP address is required'})
+        
+        # Use firewall manager to unblock IP
+        result = firewall_manager.unblock_ip(ip)
+        
+        if result['status'] == 'success':
+            # Update database
+            existing_block = Block.query.filter_by(ip=ip).first()
+            if existing_block:
+                existing_block.is_active = False
+                db.session.commit()
+            
+            # Log the action
+            audit_log = AuditLog(
+                user_id=current_user.id,
+                action='firewall_unblock',
+                details=f'Unblocked IP {ip}',
+                ip_address=request.remote_addr
+            )
+            db.session.add(audit_log)
+            db.session.commit()
+            
+            logger.info(f"User {current_user.username} unblocked IP {ip} via firewall")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Firewall unblock API error: {e}")
+        return jsonify({'status': 'error', 'error': str(e)})
+
+
+@app.route('/api/firewall/status')
+@login_required
+def api_firewall_status():
+    """Get firewall status"""
+    try:
+        status = firewall_manager.get_firewall_status()
+        return jsonify(status)
+    except Exception as e:
+        logger.error(f"Firewall status API error: {e}")
+        return jsonify({'status': 'error', 'error': str(e)})
 
 
 if __name__ == '__main__':
