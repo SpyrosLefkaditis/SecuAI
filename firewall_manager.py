@@ -293,23 +293,29 @@ class FirewallManager:
         """
         try:
             if self.simulate_mode:
-                # Return simulated data
-                return [
-                    {
-                        'ip': '192.168.100.100',
-                        'target': 'DROP',
-                        'packets': 15,
-                        'bytes': 1200,
-                        'simulated': True
-                    },
-                    {
-                        'ip': '10.0.0.50',
-                        'target': 'DROP',
-                        'packets': 8,
-                        'bytes': 640,
-                        'simulated': True
-                    }
-                ]
+                # In simulation mode, return data from database instead of hardcoded values
+                try:
+                    # Import here to avoid circular imports
+                    from models import Block
+                    from app import app
+                    
+                    with app.app_context():
+                        blocks = Block.query.filter(Block.is_active == True).all()
+                        return [
+                            {
+                                'ip': block.ip,
+                                'target': 'DROP',
+                                'packets': 0,  # Simulated - no real packet count
+                                'bytes': 0,    # Simulated - no real byte count
+                                'simulated': True,
+                                'reason': block.reason,
+                                'created_at': block.created_at
+                            }
+                            for block in blocks
+                        ]
+                except Exception as e:
+                    logger.warning(f"Could not fetch blocks from database: {e}")
+                    return []
             
             # Get rules from our chain
             cmd = ['iptables', '-L', self.chain_name, '-n', '-v', '--line-numbers']
@@ -348,23 +354,29 @@ class FirewallManager:
         """
         try:
             if self.simulate_mode:
-                # Return simulated data
-                return [
-                    {
-                        'ip': '192.168.1.0/24',
-                        'target': 'ACCEPT',
-                        'packets': 1250,
-                        'bytes': 125000,
-                        'simulated': True
-                    },
-                    {
-                        'ip': '10.0.0.1',
-                        'target': 'ACCEPT',
-                        'packets': 50,
-                        'bytes': 4000,
-                        'simulated': True
-                    }
-                ]
+                # In simulation mode, return data from database instead of hardcoded values
+                try:
+                    # Import here to avoid circular imports
+                    from models import Whitelist
+                    from app import app
+                    
+                    with app.app_context():
+                        whitelist_entries = Whitelist.query.filter(Whitelist.is_active == True).all()
+                        return [
+                            {
+                                'ip': entry.ip,
+                                'target': 'ACCEPT',
+                                'packets': 0,  # Simulated - no real packet count
+                                'bytes': 0,    # Simulated - no real byte count
+                                'simulated': True,
+                                'description': entry.description,
+                                'created_at': entry.created_at
+                            }
+                            for entry in whitelist_entries
+                        ]
+                except Exception as e:
+                    logger.warning(f"Could not fetch whitelist from database: {e}")
+                    return []
             
             # Get rules from whitelist chain
             cmd = ['iptables', '-L', self.whitelist_chain, '-n', '-v', '--line-numbers']
@@ -511,12 +523,16 @@ class FirewallManager:
         """
         try:
             if self.simulate_mode:
+                # Get real counts from database
+                blocked_ips = self.get_blocked_ips()
+                whitelisted_ips = self.get_whitelisted_ips()
+                
                 return {
                     'active': True,
                     'simulation_mode': True,
                     'chains_exist': True,
-                    'blocked_count': 2,
-                    'whitelisted_count': 2
+                    'blocked_count': len(blocked_ips),
+                    'whitelisted_count': len(whitelisted_ips)
                 }
             
             # Check if iptables is running and our chains exist

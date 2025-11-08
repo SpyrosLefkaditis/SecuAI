@@ -7,7 +7,10 @@ Main Flask application for hackathon MVP
 import os
 import json
 import logging
-from datetime import datetime
+import threading
+import subprocess
+import time
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 from flask_login import LoginManager, login_required, login_user, logout_user, current_user
 from werkzeug.utils import secure_filename
@@ -44,6 +47,60 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
+
+
+def clear_sample_data():
+    """Clear any sample/hardcoded data from database"""
+    try:
+        # Remove old hardcoded alerts that might exist
+        old_alerts = Alert.query.filter(
+            Alert.created_at < datetime.utcnow() - timedelta(hours=1)
+        ).all()
+        
+        for alert in old_alerts:
+            if any(sample_ip in alert.ip for sample_ip in ['198.51.100', '203.0.113', '192.168.1', '10.0.0']):
+                logger.info(f"Removing sample alert: {alert.ip}")
+                db.session.delete(alert)
+        
+        # Remove old blocks that look like sample data
+        old_blocks = Block.query.filter(
+            Block.created_at < datetime.utcnow() - timedelta(hours=1)
+        ).all()
+        
+        for block in old_blocks:
+            if any(sample_ip in block.ip for sample_ip in ['198.51.100', '203.0.113', '192.168.1', '10.0.0']):
+                logger.info(f"Removing sample block: {block.ip}")
+                db.session.delete(block)
+        
+        db.session.commit()
+        logger.info("✅ Sample data cleanup completed")
+        
+    except Exception as e:
+        logger.error(f"Error clearing sample data: {e}")
+        db.session.rollback()
+
+
+def start_log_monitor():
+    """Start log monitor in background thread"""
+    def run_monitor():
+        try:
+            time.sleep(2)  # Wait for Flask app to fully start
+            logger.info("🚀 Starting integrated log monitor...")
+            
+            # Import here to avoid circular imports
+            from log_monitor import LogMonitor
+            monitor = LogMonitor()
+            
+            # Run monitor in the background without blocking
+            monitor.start_monitoring()
+            
+        except Exception as e:
+            logger.error(f"Error starting log monitor: {e}")
+    
+    # Start monitor in daemon thread (dies when main process dies)
+    monitor_thread = threading.Thread(target=run_monitor, daemon=True, name="LogMonitor")
+    monitor_thread.start()
+    logger.info("✅ Log monitor thread started in background")
 
 
 # Routes
@@ -624,9 +681,46 @@ def api_firewall_status():
         return jsonify({'status': 'error', 'error': str(e)})
 
 
-if __name__ == '__main__':
+# Global variable to track if monitor is started
+monitor_started = False
+
+def initialize_monitor():
+    """Initialize log monitor if not already started"""
+    global monitor_started
+    if not monitor_started:
+        # Clear any old sample data
+        clear_sample_data()
+        
+        # Start integrated log monitor
+        start_log_monitor()
+        monitor_started = True
+        logger.info("🚀 SecuAI initialization complete")
+
+# Initialize on first route access
+@app.before_request
+def before_request():
+    """Initialize components before any request"""
+    initialize_monitor()
+
+def create_app():
+    """Application factory function"""
     with app.app_context():
         db.create_all()
+        
+        # Create default admin user if none exists
+        if not User.query.first():
+            admin = User(email='admin@secai.local', is_admin=True)
+            admin.set_password('admin123')
+            db.session.add(admin)
+            db.session.commit()
+            logger.info("✅ Default admin user created (admin@secai.local / admin123)")
+        
+        # Initialize monitor immediately when running directly
+        initialize_monitor()
     
-    # Run in debug mode for development
+    return app
+
+if __name__ == '__main__':
+    # Create and run the app
+    create_app()
     app.run(host='0.0.0.0', port=5000, debug=config('DEBUG', default=True, cast=bool))
