@@ -33,9 +33,6 @@
                     <a class="nav-link" href="/alerts">
                         <i class="bi bi-exclamation-triangle"></i> Alerts
                     </a>
-                    <a class="nav-link" href="/blocks">
-                        <i class="bi bi-ban"></i> Blocks
-                    </a>
                     <a class="nav-link" href="/firewall">
                         <i class="bi bi-shield-lock"></i> Firewall
                     </a>
@@ -245,43 +242,8 @@
                 </div>
             </div>
 
-            <!-- Right Column: Blocks and Honeypot -->
+            <!-- Right Column: Honeypot -->
             <div class="col-lg-4">
-                <!-- Active Blocks -->
-                <div class="card mb-4" id="blocks">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">
-                            <i class="bi bi-ban"></i> Active Blocks
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="blocks-list">
-                            {% for block in blocks %}
-                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
-                                <div>
-                                    <strong>{{ block.ip }}</strong><br>
-                                    <small class="text-muted">
-                                        {{ block.created_at.strftime('%m/%d %H:%M') }}
-                                        {% if not block.applied %}
-                                        <span class="badge bg-warning">Simulated</span>
-                                        {% endif %}
-                                    </small>
-                                </div>
-                                <button class="btn btn-sm btn-outline-danger" 
-                                        onclick="unblockIP('{{ block.ip }}')">
-                                    <i class="bi bi-unlock"></i>
-                                </button>
-                            </div>
-                            {% endfor %}
-                            {% if not blocks %}
-                            <div class="text-center text-muted">
-                                <i class="bi bi-info-circle"></i> No active blocks
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Honeypot Feed -->
                 <div class="card" id="honeypot">
                     <div class="card-header d-flex justify-content-between align-items-center">

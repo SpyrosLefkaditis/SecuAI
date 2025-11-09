@@ -83,10 +83,10 @@ function blockFromAlert(ip, alertId) {
     btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
     
     $.ajax({
-        url: '/api/block',
+        url: '/api/firewall/blacklist',
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify({ ip: ip, action: 'approve' }),
+        data: JSON.stringify({ ip: ip, reason: 'Blocked from admin alert review' }),
         success: function(response) {
             // Update alert status
             const row = btn.closest('tr');

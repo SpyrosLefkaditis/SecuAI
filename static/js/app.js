@@ -210,10 +210,10 @@ function performBlockAction(ip, action, successMessage) {
     btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
     
     $.ajax({
-        url: '/api/block',
+        url: '/api/firewall/blacklist',
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify({ ip: ip, action: action }),
+        data: JSON.stringify({ ip: ip, reason: `Block action: ${action}` }),
         timeout: SECUAI_CONFIG.apiTimeout,
         success: function(response) {
             showAlert(`${successMessage}: ${ip}`, 'success');
@@ -260,20 +260,11 @@ function refreshAlerts() {
 }
 
 /**
- * Refresh blocks list
+ * Refresh blocks list (no-op since blocks section removed)
  */
 function refreshBlocks() {
-    $.ajax({
-        url: '/api/blocks',
-        method: 'GET',
-        timeout: SECUAI_CONFIG.apiTimeout,
-        success: function(response) {
-            updateBlocksList(response.blocks);
-        },
-        error: function(xhr, status, error) {
-            console.error('Failed to refresh blocks:', error);
-        }
-    });
+    // Blocks section has been removed - functionality moved to firewall page
+    console.log('Blocks section removed - use firewall page for IP management');
 }
 
 /**
@@ -323,8 +314,22 @@ function unblockIP(ip) {
         return;
     }
     
-    // Note: This would need a backend endpoint for unblocking
-    showAlert(`Unblock requested for ${ip} (demo - backend endpoint needed)`, 'info');
+    $.ajax({
+        url: '/api/firewall/unblock',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ ip: ip }),
+        timeout: SECUAI_CONFIG.apiTimeout,
+        success: function(response) {
+            showAlert(`Successfully unblocked IP ${ip}`, 'success');
+            // Refresh the current page to update the UI
+            setTimeout(() => location.reload(), 1000);
+        },
+        error: function(xhr, status, error) {
+            console.error('Unblock error:', error);
+            showAlert(`Failed to unblock IP ${ip}: ${getErrorMessage(xhr)}`, 'danger');
+        }
+    });
 }
 
 /**
@@ -426,10 +431,10 @@ function testBlockAPI(action) {
     btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Testing...';
     
     $.ajax({
-        url: '/api/block',
+        url: '/api/firewall/blacklist',
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify({ ip: testIP, action: action }),
+        data: JSON.stringify({ ip: testIP, reason: `API test - ${action} action` }),
         timeout: SECUAI_CONFIG.apiTimeout,
         success: function(response) {
             displayAPIResponse(`Block API Test (${action})`, response);

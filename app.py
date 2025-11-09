@@ -117,19 +117,16 @@ def dashboard():
         critical_alerts = Alert.query.filter(Alert.confidence >= 0.8).count()
         blocked_ips = Block.query.filter(Block.is_active == True).count()
         
-        # Get recent blocks
-        recent_blocks = Block.query.filter(Block.is_active == True).order_by(Block.created_at.desc()).limit(5).all()
-        
         stats = {
             'alerts_today': alerts_today,
             'critical_alerts': critical_alerts,
             'blocked_ips': blocked_ips
         }
         
-        return render_template('index.html', stats=stats, blocks=recent_blocks)
+        return render_template('index.html', stats=stats)
     except Exception as e:
         logger.error(f"Dashboard error: {e}")
-        return render_template('index.html', stats={'alerts_today': 0, 'critical_alerts': 0, 'blocked_ips': 0}, blocks=[])
+        return render_template('index.html', stats={'alerts_today': 0, 'critical_alerts': 0, 'blocked_ips': 0})
 
 
 @app.route('/api/analyze', methods=['POST'])
@@ -227,98 +224,7 @@ def upload_file():
         return redirect(url_for('dashboard'))
 
 
-@app.route('/api/block', methods=['POST'])
-def api_block():
-    """Block an IP address"""
-    try:
-        data = request.get_json()
-        ip = data.get('ip')
-        action = data.get('action', 'recommend')  # recommend, approve, simulate, apply
-        
-        if not ip:
-            return jsonify({'error': 'IP address required'}), 400
-        
-        # Check if IP is whitelisted
-        whitelist_entry = Whitelist.query.filter_by(ip=ip, is_active=True).first()
-        if whitelist_entry:
-            return jsonify({'error': 'IP is whitelisted', 'status': 'blocked'}), 403
-        
-        # Handle different actions
-        if action == 'recommend':
-            # Just create a recommendation
-            block = Block(ip=ip, action='recommend', is_active=False, applied=False)
-            db.session.add(block)
-            
-            # Log audit
-            audit = AuditLog(
-                action='block_recommend',
-                details=f'Recommended blocking {ip}',
-                user_id=getattr(current_user, 'id', None)
-            )
-            db.session.add(audit)
-            
-            status = 'recommended'
-            
-        elif action == 'approve':
-            # Approve and simulate block
-            result = simulate_block(ip)
-            
-            block = Block(ip=ip, action='approve', is_active=True, applied=False, details=result['message'])
-            db.session.add(block)
-            
-            # Log audit
-            audit = AuditLog(
-                action='block_approve',
-                details=f'Approved and simulated blocking {ip}: {result["message"]}',
-                user_id=getattr(current_user, 'id', None)
-            )
-            db.session.add(audit)
-            
-            status = 'approved_simulated'
-            
-        elif action == 'apply' and can_apply_real_block():
-            # Real blocking (disabled by default for safety)
-            return jsonify({'error': 'Real blocking is disabled for safety', 'status': 'blocked'}), 403
-            
-        else:
-            return jsonify({'error': 'Invalid action'}), 400
-        
-        db.session.commit()
-        
-        return jsonify({
-            'status': 'success',
-            'action': action,
-            'ip': ip,
-            'block_status': status
-        })
-        
-    except Exception as e:
-        logger.error(f"Block error: {e}")
-        return jsonify({'error': 'Block operation failed', 'details': str(e)}), 500
 
-
-@app.route('/api/blocks')
-def api_blocks():
-    """Get list of blocked IPs"""
-    try:
-        blocks = Block.query.filter(Block.is_active == True).order_by(Block.created_at.desc()).all()
-        
-        result = []
-        for block in blocks:
-            result.append({
-                'id': block.id,
-                'ip': block.ip,
-                'action': block.action,
-                'applied': block.applied,
-                'created_at': block.created_at.isoformat(),
-                'details': block.details
-            })
-        
-        return jsonify({'blocks': result})
-        
-    except Exception as e:
-        logger.error(f"Blocks API error: {e}")
-        return jsonify({'error': 'Failed to get blocks'}), 500
 
 
 @app.route('/api/honeypot', methods=['POST'])
@@ -445,17 +351,7 @@ def alerts_page():
         return redirect(url_for('dashboard'))
 
 
-@app.route('/blocks')
-@login_required
-def blocks_page():
-    """IP blocks management page"""
-    try:
-        active_blocks = Block.query.filter(Block.is_active == True).order_by(Block.created_at.desc()).all()
-        return render_template('blocks.html', blocks=active_blocks)
-    except Exception as e:
-        logger.error(f"Blocks page error: {e}")
-        flash(f'Error loading blocks: {str(e)}')
-        return redirect(url_for('dashboard'))
+
 
 
 @app.route('/analysis')

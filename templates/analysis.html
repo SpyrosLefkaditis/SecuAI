@@ -27,9 +27,6 @@
                 <a class="nav-link" href="/alerts">
                     <i class="bi bi-exclamation-triangle"></i> Alerts
                 </a>
-                <a class="nav-link" href="/blocks">
-                    <i class="bi bi-ban"></i> Blocks
-                </a>
                 <a class="nav-link" href="/firewall">
                     <i class="bi bi-shield-lock"></i> Firewall
                 </a>
@@ -312,14 +309,14 @@ Oct 15 10:31:01 server kernel: SYN flood detected from 10.0.0.50</textarea>
             const startTime = Date.now();
             showApiLoading();
             
-            fetch('/api/block', {
+            fetch('/api/firewall/blacklist', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     ip: ip,
-                    action: action
+                    reason: `API test - ${action} action`
                 })
             })
             .then(response => {
