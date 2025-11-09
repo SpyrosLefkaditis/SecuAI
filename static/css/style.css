@@ -517,8 +517,13 @@ footer {
 }
 
 /* Force Pure Black Theme Bootstrap Overrides */
+body {
+    background-color: #000000 !important;
+}
+
 .navbar-dark {
     background-color: #000000 !important;
+    border-bottom: 1px solid #333333;
 }
 
 .bg-dark {
@@ -536,6 +541,15 @@ footer {
 
 .text-muted {
     color: #888888 !important;
+}
+
+/* Container backgrounds */
+.container-fluid {
+    background-color: #000000 !important;
+}
+
+.container {
+    background-color: #000000 !important;
 }
 
 .card {
@@ -612,5 +626,193 @@ footer {
 .alert-warning {
     background-color: #1a1a1a !important;
     border-color: #f59e0b !important;
+    color: #ffffff !important;
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(10, 10, 10, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+}
+
+.theme-toggle:hover {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: rgba(34, 197, 94, 0.5);
+    transform: scale(1.1);
+}
+
+/* Footer styling */
+footer {
+    background: linear-gradient(135deg, #000000, #0a0a0a) !important;
+    border-top: 1px solid #333333;
+}
+
+/* Badge enhancements */
+.badge {
+    border-radius: 6px;
+    font-weight: 500;
+    padding: 0.4em 0.8em;
+}
+
+.badge.bg-success {
+    background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+}
+
+.badge.bg-danger {
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+}
+
+.badge.bg-warning {
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    color: #000000 !important;
+}
+
+.badge.bg-info {
+    background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+}
+
+/* Navbar brand enhancement */
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.5rem;
+    letter-spacing: -0.5px;
+}
+
+.navbar-brand i {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* System Overview Cards */
+.system-overview .card {
+    background: linear-gradient(135deg, #0a0a0a, #1a1a1a) !important;
+    border: 1px solid #333333 !important;
+}
+
+/* API Demo Section */
+.api-demo .card {
+    background: linear-gradient(135deg, #000000, #0a0a0a) !important;
+    border: 1px solid #333333 !important;
+}
+
+/* Pre/Code blocks */
+pre {
+    background-color: #0a0a0a !important;
+    border: 1px solid #333333 !important;
+    color: #ffffff !important;
+}
+
+code {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: #22c55e !important;
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+}
+
+/* Dropdown menus */
+.dropdown-menu {
+    background-color: #0a0a0a !important;
+    border: 1px solid #333333 !important;
+}
+
+.dropdown-item {
+    color: #ffffff !important;
+}
+
+.dropdown-item:hover {
+    background-color: #1a1a1a !important;
+    color: #22c55e !important;
+}
+
+/* Modal enhancements */
+.modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.8) !important;
+}
+
+/* List groups */
+.list-group-item {
+    background-color: #0a0a0a !important;
+    border-color: #333333 !important;
+    color: #ffffff !important;
+}
+
+.list-group-item:hover {
+    background-color: #1a1a1a !important;
+}
+
+/* Pagination */
+.page-link {
+    background-color: #0a0a0a !important;
+    border-color: #333333 !important;
+    color: #ffffff !important;
+}
+
+.page-link:hover {
+    background-color: #1a1a1a !important;
+    border-color: #22c55e !important;
+    color: #22c55e !important;
+}
+
+.page-item.active .page-link {
+    background-color: #22c55e !important;
+    border-color: #22c55e !important;
+}
+
+/* Breadcrumbs */
+.breadcrumb {
+    background-color: #0a0a0a !important;
+}
+
+.breadcrumb-item a {
+    color: #22c55e !important;
+}
+
+/* Tooltips */
+.tooltip-inner {
+    background-color: #0a0a0a !important;
+    border: 1px solid #333333 !important;
+}
+
+/* Progress bars */
+.progress {
+    background-color: #1a1a1a !important;
+}
+
+/* Accordion */
+.accordion-item {
+    background-color: #0a0a0a !important;
+    border-color: #333333 !important;
+}
+
+.accordion-button {
+    background-color: #0a0a0a !important;
+    color: #ffffff !important;
+    border-color: #333333 !important;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #1a1a1a !important;
+    color: #22c55e !important;
+}
+
+.accordion-body {
+    background-color: #000000 !important;
     color: #ffffff !important;
 }
