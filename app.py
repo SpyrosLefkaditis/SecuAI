@@ -21,6 +21,7 @@ from models import db, User, Alert, Block, AuditLog, Whitelist
 from analyzer import analyze_logs, ml_enrich
 from agents.host_blocker import simulate_block, can_apply_real_block
 from firewall_manager import firewall_manager
+from ai_analyzer import ai_analyzer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -795,6 +796,225 @@ def api_firewall_status():
         return jsonify(status)
     except Exception as e:
         logger.error(f"Firewall status API error: {e}")
+        return jsonify({'status': 'error', 'error': str(e)})
+
+
+@app.route('/api/ai/analyze/<int:alert_id>')
+@login_required
+def api_ai_analyze_alert(alert_id):
+    """Get AI analysis for a specific alert"""
+    try:
+        alert = Alert.query.get_or_404(alert_id)
+        
+        # Prepare alert data for AI analysis
+        alert_data = {
+            'id': alert.id,
+            'ip': alert.ip,
+            'reason': alert.reason,
+            'confidence': alert.confidence,
+            'source': alert.source,
+            'details': alert.details,
+            'created_at': alert.created_at.isoformat()
+        }
+        
+        # Get AI analysis
+        analysis = ai_analyzer.analyze_threat(alert_data)
+        
+        return jsonify({
+            'status': 'success',
+            'alert_id': alert_id,
+            'analysis': analysis
+        })
+        
+    except Exception as e:
+        logger.error(f"AI analysis API error: {e}")
+        return jsonify({'status': 'error', 'error': str(e)})
+
+
+@app.route('/api/ai/bulk-analyze')
+@login_required
+def api_ai_bulk_analyze():
+    """Get AI analysis for multiple recent alerts"""
+    try:
+        # Get parameters
+        limit = request.args.get('limit', 10, type=int)
+        hours = request.args.get('hours', 24, type=int)
+        
+        # Get recent alerts
+        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+        alerts = Alert.query.filter(
+            Alert.created_at >= cutoff_time
+        ).order_by(Alert.confidence.desc()).limit(limit).all()
+        
+        # Prepare alert data
+        alert_data = []
+        for alert in alerts:
+            alert_data.append({
+                'id': alert.id,
+                'ip': alert.ip,
+                'reason': alert.reason,
+                'confidence': alert.confidence,
+                'source': alert.source,
+                'details': alert.details,
+                'created_at': alert.created_at.isoformat()
+            })
+        
+        # Get bulk AI analysis
+        bulk_analysis = ai_analyzer.bulk_analyze_alerts(alert_data, max_analyses=limit)
+        
+        return jsonify({
+            'status': 'success',
+            'timeframe_hours': hours,
+            'analysis': bulk_analysis
+        })
+        
+    except Exception as e:
+        logger.error(f"Bulk AI analysis error: {e}")
+        return jsonify({'status': 'error', 'error': str(e)})
+
+
+@app.route('/api/ai/threat-intel/<ip>')
+@login_required
+def api_ai_threat_intelligence(ip):
+    """Get AI-powered threat intelligence for an IP"""
+    try:
+        intelligence = ai_analyzer.get_threat_intelligence(ip)
+        
+        return jsonify({
+            'status': 'success',
+            'ip': ip,
+            'intelligence': intelligence
+        })
+        
+    except Exception as e:
+        logger.error(f"Threat intelligence API error: {e}")
+        return jsonify({'status': 'error', 'error': str(e)})
+
+
+@app.route('/api/ai/security-summary')
+@login_required
+def api_ai_security_summary():
+    """Get AI-powered security summary and recommendations"""
+    try:
+        # Get recent alerts for analysis
+        hours = request.args.get('hours', 24, type=int)
+        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+        
+        alerts = Alert.query.filter(
+            Alert.created_at >= cutoff_time
+        ).order_by(Alert.created_at.desc()).limit(50).all()
+        
+        # Get system blocks
+        blocks = Block.query.filter(
+            Block.created_at >= cutoff_time,
+            Block.is_active == True
+        ).all()
+        
+        # Prepare data for AI summary
+        alert_data = []
+        for alert in alerts:
+            try:
+                details = eval(alert.details) if alert.details.startswith('{') else {}
+                ai_analysis = details.get('ai_analysis', {})
+                
+                alert_data.append({
+                    'ip': alert.ip,
+                    'severity': ai_analysis.get('severity_level', 'UNKNOWN'),
+                    'threat_category': ai_analysis.get('threat_category', 'Unknown'),
+                    'confidence': alert.confidence,
+                    'timestamp': alert.created_at.isoformat()
+                })
+            except:
+                # Fallback for alerts without AI analysis
+                alert_data.append({
+                    'ip': alert.ip,
+                    'severity': 'UNKNOWN',
+                    'threat_category': 'Legacy Alert',
+                    'confidence': alert.confidence,
+                    'timestamp': alert.created_at.isoformat()
+                })
+        
+        # Create security summary
+        total_alerts = len(alert_data)
+        total_blocks = len(blocks)
+        unique_ips = len(set([a['ip'] for a in alert_data]))
+        
+        # Count severity levels
+        severity_counts = {
+            'CRITICAL': len([a for a in alert_data if a['severity'] == 'CRITICAL']),
+            'HIGH': len([a for a in alert_data if a['severity'] == 'HIGH']),
+            'MEDIUM': len([a for a in alert_data if a['severity'] == 'MEDIUM']),
+            'LOW': len([a for a in alert_data if a['severity'] == 'LOW']),
+            'UNKNOWN': len([a for a in alert_data if a['severity'] == 'UNKNOWN'])
+        }
+        
+        # Calculate threat level
+        high_priority = severity_counts['CRITICAL'] + severity_counts['HIGH']
+        if high_priority >= 10:
+            threat_level = 'CRITICAL'
+            status_color = '#dc3545'  # Red
+        elif high_priority >= 5:
+            threat_level = 'HIGH'
+            status_color = '#fd7e14'  # Orange
+        elif high_priority >= 2:
+            threat_level = 'MEDIUM'
+            status_color = '#ffc107'  # Yellow
+        else:
+            threat_level = 'LOW'
+            status_color = '#28a745'  # Green
+        
+        # Most common threat types
+        threat_categories = [a['threat_category'] for a in alert_data if a['threat_category'] != 'Unknown']
+        threat_counts = {}
+        for category in threat_categories:
+            threat_counts[category] = threat_counts.get(category, 0) + 1
+        
+        top_threats = sorted(threat_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        
+        summary = {
+            'timeframe_hours': hours,
+            'threat_level': threat_level,
+            'status_color': status_color,
+            'statistics': {
+                'total_alerts': total_alerts,
+                'total_blocks': total_blocks,
+                'unique_attackers': unique_ips,
+                'high_priority_threats': high_priority
+            },
+            'severity_breakdown': severity_counts,
+            'top_threat_types': top_threats,
+            'recent_activity': alert_data[:10],  # Last 10 alerts
+            'recommendations': []
+        }
+        
+        # Add AI-powered recommendations
+        if high_priority >= 10:
+            summary['recommendations'].extend([
+                "🚨 URGENT: Activate incident response protocol",
+                "🔒 Consider implementing emergency firewall rules",
+                "📞 Notify security team immediately"
+            ])
+        elif high_priority >= 5:
+            summary['recommendations'].extend([
+                "⚠️ Escalate to security team for review",
+                "🔍 Investigate common attack patterns",
+                "🛡️ Review and update security policies"
+            ])
+        else:
+            summary['recommendations'].extend([
+                "✅ Current threat level is manageable",
+                "📊 Continue monitoring for trends",
+                "🔄 Regular security posture review recommended"
+            ])
+        
+        return jsonify({
+            'status': 'success',
+            'summary': summary,
+            'ai_enhanced': True
+        })
+        
+    except Exception as e:
+        logger.error(f"Security summary API error: {e}")
         return jsonify({'status': 'error', 'error': str(e)})
 
 

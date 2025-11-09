@@ -225,6 +225,7 @@
                                 <th>Time</th>
                                 <th>IP Address</th>
                                 <th>Threat Type</th>
+                                <th>AI Analysis</th>
                                 <th>Description</th>
                                 <th>Confidence</th>
                                 <th>Source</th>
@@ -233,7 +234,16 @@
                         </thead>
                         <tbody>
                             {% for alert in alerts %}
-                            <tr data-ip="{{ alert.ip }}" data-confidence="{{ alert.confidence }}" data-type="{{ alert.reason.lower() }}">
+                            {% set alert_details = alert.details | safe %}
+                            {% if alert_details.startswith('{') %}
+                                {% set details_dict = alert_details | replace("'", '"') %}
+                                {% set ai_analysis = {} %}
+                                {% if 'ai_analysis' in details_dict %}
+                                    {% set ai_analysis = alert_details %}
+                                {% endif %}
+                            {% endif %}
+                            
+                            <tr data-ip="{{ alert.ip }}" data-confidence="{{ alert.confidence }}" data-type="{{ alert.reason.lower() }}" data-alert-id="{{ alert.id }}">
                                 <td>
                                     <small class="text-muted">
                                         {{ alert.created_at.strftime('%m/%d %H:%M') }}
@@ -243,17 +253,35 @@
                                     <code class="bg-light px-2 py-1 rounded">{{ alert.ip }}</code>
                                 </td>
                                 <td>
-                                    {% if 'failed' in alert.reason.lower() or 'login' in alert.reason.lower() %}
-                                        <span class="badge bg-danger">Failed Login</span>
-                                    {% elif 'scan' in alert.reason.lower() %}
-                                        <span class="badge bg-warning">Port Scan</span>
-                                    {% elif 'web' in alert.reason.lower() or 'probing' in alert.reason.lower() %}
-                                        <span class="badge bg-info">Web Probing</span>
-                                    {% elif 'suricata' in alert.reason.lower() or 'ids' in alert.reason.lower() %}
-                                        <span class="badge bg-secondary">IDS Alert</span>
+                                    {% if 'sql' in alert.reason.lower() or 'injection' in alert.reason.lower() %}
+                                        <span class="badge bg-danger"><i class="bi bi-bug-fill"></i> SQL Injection</span>
+                                    {% elif 'brute' in alert.reason.lower() or 'failed password' in alert.reason.lower() %}
+                                        <span class="badge bg-danger"><i class="bi bi-key-fill"></i> Brute Force</span>
+                                    {% elif 'admin' in alert.reason.lower() or 'probing' in alert.reason.lower() %}
+                                        <span class="badge bg-warning"><i class="bi bi-search"></i> Admin Probing</span>
+                                    {% elif 'scan' in alert.reason.lower() or 'scanning' in alert.reason.lower() %}
+                                        <span class="badge bg-info"><i class="bi bi-radar"></i> Scanning</span>
+                                    {% elif 'xss' in alert.reason.lower() or 'script' in alert.reason.lower() %}
+                                        <span class="badge bg-danger"><i class="bi bi-code-slash"></i> XSS Attempt</span>
+                                    {% elif 'traversal' in alert.reason.lower() %}
+                                        <span class="badge bg-danger"><i class="bi bi-folder2-open"></i> Directory Traversal</span>
+                                    {% elif 'web' in alert.reason.lower() %}
+                                        <span class="badge bg-warning"><i class="bi bi-globe"></i> Web Attack</span>
                                     {% else %}
-                                        <span class="badge bg-primary">Other</span>
+                                        <span class="badge bg-primary"><i class="bi bi-shield-exclamation"></i> Security Threat</span>
                                     {% endif %}
+                                </td>
+                                <td class="ai-analysis-cell" data-alert-id="{{ alert.id }}">
+                                    <div class="d-flex align-items-center">
+                                        <div class="spinner-border spinner-border-sm me-2" role="status" style="display: none;">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <div class="ai-content">
+                                            <span class="badge bg-secondary">
+                                                <i class="bi bi-robot"></i> Loading AI...
+                                            </span>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td>{{ alert.reason }}</td>
                                 <td>
@@ -293,7 +321,7 @@
                             {% endfor %}
                             {% if not alerts %}
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-4">
+                                <td colspan="8" class="text-center text-muted py-4">
                                     <i class="bi bi-info-circle"></i> No security alerts found
                                 </td>
                             </tr>
@@ -514,6 +542,180 @@
             }
         }
         
+        // Load AI analysis for each alert
+        async function loadAIAnalysis(alertId) {
+            const cell = document.querySelector(`.ai-analysis-cell[data-alert-id="${alertId}"]`);
+            if (!cell) return;
+            
+            const spinner = cell.querySelector('.spinner-border');
+            const content = cell.querySelector('.ai-content');
+            
+            try {
+                spinner.style.display = 'inline-block';
+                
+                const response = await fetch(`/api/ai/analyze/${alertId}`);
+                const data = await response.json();
+                
+                if (data.status === 'success' && data.analysis) {
+                    const analysis = data.analysis;
+                    const severityColor = getSeverityColor(analysis.severity_level);
+                    const riskScore = analysis.risk_score || 50;
+                    
+                    content.innerHTML = `
+                        <div class="d-flex flex-column">
+                            <div class="mb-1">
+                                <span class="badge ${severityColor}">
+                                    <i class="bi bi-robot"></i> ${analysis.severity_level || 'MEDIUM'}
+                                </span>
+                                <span class="badge bg-light text-dark ms-1">
+                                    Risk: ${riskScore}/100
+                                </span>
+                            </div>
+                            <small class="text-muted">
+                                ${analysis.threat_category || 'Security Threat'}
+                            </small>
+                            <small class="text-truncate" title="${analysis.explanation || 'AI analysis completed'}">
+                                ${(analysis.explanation || 'AI analysis completed').substring(0, 60)}...
+                            </small>
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = '<span class="badge bg-secondary"><i class="bi bi-exclamation-triangle"></i> AI Error</span>';
+                }
+            } catch (error) {
+                console.error('AI analysis error:', error);
+                content.innerHTML = '<span class="badge bg-secondary"><i class="bi bi-x-circle"></i> AI Unavailable</span>';
+            } finally {
+                spinner.style.display = 'none';
+            }
+        }
+        
+        function getSeverityColor(severity) {
+            switch(severity) {
+                case 'CRITICAL': return 'bg-danger';
+                case 'HIGH': return 'bg-warning';
+                case 'MEDIUM': return 'bg-info';
+                case 'LOW': return 'bg-success';
+                default: return 'bg-secondary';
+            }
+        }
+        
+        // Enhanced viewDetails with AI analysis modal
+        function viewDetails(alertId) {
+            showAIAnalysisModal(alertId);
+        }
+        
+        async function showAIAnalysisModal(alertId) {
+            try {
+                const response = await fetch(`/api/ai/analyze/${alertId}`);
+                const data = await response.json();
+                
+                if (data.status === 'success' && data.analysis) {
+                    const analysis = data.analysis;
+                    
+                    const modalContent = `
+                        <div class="modal fade" id="aiAnalysisModal" tabindex="-1">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">
+                                            <i class="bi bi-robot"></i> AI Security Analysis
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <h6>Threat Level</h6>
+                                                <span class="badge ${getSeverityColor(analysis.severity_level)} fs-6">
+                                                    ${analysis.severity_level || 'UNKNOWN'}
+                                                </span>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6>Risk Score</h6>
+                                                <div class="progress">
+                                                    <div class="progress-bar bg-danger" style="width: ${analysis.risk_score || 50}%">
+                                                        ${analysis.risk_score || 50}/100
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <h6>Threat Category</h6>
+                                            <p class="text-primary">${analysis.threat_category || 'Security Threat'}</p>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <h6>Explanation</h6>
+                                            <p>${analysis.explanation || 'No detailed explanation available.'}</p>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <h6>Attack Vector</h6>
+                                            <p>${analysis.attack_vector || 'Network-based attack attempt'}</p>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <h6>Potential Impact</h6>
+                                            <p>${analysis.potential_impact || 'Potential system compromise if successful'}</p>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <h6>Recommended Actions</h6>
+                                            <ul class="list-unstyled">
+                                                ${(analysis.recommended_actions || ['Monitor activity', 'Review logs']).map(action => `<li><i class="bi bi-check-circle text-success"></i> ${action}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <h6>Technical Details</h6>
+                                            <small class="text-muted">${analysis.technical_details || 'No additional technical details available.'}</small>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        <button type="button" class="btn btn-danger" onclick="blockThreat('${data.alert_id}')">
+                                            <i class="bi bi-shield-x"></i> Block Threat
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Remove existing modal
+                    const existingModal = document.getElementById('aiAnalysisModal');
+                    if (existingModal) existingModal.remove();
+                    
+                    // Add modal to body
+                    document.body.insertAdjacentHTML('beforeend', modalContent);
+                    
+                    // Show modal
+                    const modal = new bootstrap.Modal(document.getElementById('aiAnalysisModal'));
+                    modal.show();
+                } else {
+                    alert('AI analysis not available for this alert');
+                }
+            } catch (error) {
+                console.error('Error loading AI analysis:', error);
+                alert('Failed to load AI analysis');
+            }
+        }
+        
+        function blockThreat(alertId) {
+            // Find the alert row to get IP
+            const row = document.querySelector(`tr[data-alert-id="${alertId}"]`);
+            if (row) {
+                const ip = row.dataset.ip;
+                blockIPFromAlert(ip, 'Blocked via AI recommendation');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('aiAnalysisModal'));
+                if (modal) modal.hide();
+            }
+        }
+        
         // Initialize with 48-hour default on page load
         document.addEventListener('DOMContentLoaded', function() {
             // Set the quick filter to show current selection
@@ -523,6 +725,16 @@
             {% else %}
             quickFilter.value = 'custom';
             {% endif %}
+            
+            // Load AI analysis for all visible alerts
+            const alertRows = document.querySelectorAll('tr[data-alert-id]');
+            alertRows.forEach(row => {
+                const alertId = row.dataset.alertId;
+                if (alertId) {
+                    // Delay loading to spread out API calls
+                    setTimeout(() => loadAIAnalysis(alertId), Math.random() * 2000);
+                }
+            });
         });
     </script>
 </body>

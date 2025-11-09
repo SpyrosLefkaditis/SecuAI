@@ -20,6 +20,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from app import app
 from models import db, Alert, Block, AuditLog
 from analyzer import analyze_logs
+from ai_analyzer import ai_analyzer
 
 # Configure logging
 logging.basicConfig(
@@ -293,13 +294,40 @@ class LogMonitor:
                     }
                 }
                 
-                # Create new alert
+                # Create alert data for AI analysis
+                alert_data = {
+                    'ip': ip,
+                    'reason': reason,
+                    'confidence': confidence,
+                    'source': log_type,
+                    'details': alert_details
+                }
+                
+                # Get AI analysis for this threat
+                try:
+                    ai_analysis = ai_analyzer.analyze_threat(alert_data)
+                    alert_details['ai_analysis'] = ai_analysis
+                    
+                    # Update confidence based on AI assessment
+                    if ai_analysis.get('risk_score'):
+                        ai_confidence = ai_analysis['risk_score'] / 100.0
+                        # Blend original confidence with AI assessment
+                        confidence = (confidence + ai_confidence) / 2.0
+                        confidence = min(0.98, confidence)  # Cap at 98%
+                    
+                    logger.info(f"🤖 AI Analysis: {ai_analysis.get('severity_level', 'Unknown')} threat - {ai_analysis.get('explanation', 'No details')[:100]}...")
+                    
+                except Exception as e:
+                    logger.warning(f"AI analysis failed for {ip}: {e}")
+                    alert_details['ai_analysis'] = {'error': str(e), 'fallback': True}
+                
+                # Create new alert with AI enhancement
                 alert = Alert(
                     ip=ip,
                     reason=reason,
                     confidence=confidence,
                     source=log_type,
-                    details=str(alert_details),  # Store as JSON string
+                    details=str(alert_details),  # Store as JSON string with AI analysis
                     created_at=datetime.utcnow()
                 )
                 

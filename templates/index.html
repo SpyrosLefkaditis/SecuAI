@@ -141,6 +141,45 @@
             </div>
         </div>
 
+        <!-- AI Security Summary -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-info">
+                    <div class="card-header bg-gradient" style="background: linear-gradient(45deg, #6f42c1, #0d6efd);">
+                        <div class="d-flex justify-content-between align-items-center text-white">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-robot"></i> AI Security Analysis
+                            </h5>
+                            <div>
+                                <span class="badge bg-light text-dark" id="ai-analysis-status">Loading...</span>
+                                <button class="btn btn-sm btn-outline-light" onclick="refreshAIAnalysis()">
+                                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body" id="ai-summary-content">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="d-flex justify-content-center align-items-center py-4">
+                                    <div class="spinner-border text-primary me-3" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <span class="text-muted">AI is analyzing your security posture...</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center py-4">
+                                    <i class="bi bi-robot display-1 text-muted"></i>
+                                    <p class="text-muted">SecuAI Intelligence</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <!-- Left Column: System Monitoring -->
             <div class="col-lg-8">
@@ -391,18 +430,7 @@
         let systemMonitoringInterval;
         let cpuChart, memoryChart, diskChart, loadChart;
         
-        // Initialize system monitoring on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeSystemCharts();
-            loadSystemStats();
-            loadTopProcesses();
-            
-            // Start auto-refresh every 5 seconds
-            systemMonitoringInterval = setInterval(() => {
-                loadSystemStats();
-                loadTopProcesses();
-            }, 5000);
-        });
+        // Initialize system monitoring on page load - moved to combined initialization below
         
         function initializeSystemCharts() {
             // Dark theme layout for all charts
@@ -606,6 +634,260 @@
         function refreshOverview() {
             location.reload();
         }
+        
+        // AI Security Analysis Functions
+        async function loadAISecuritySummary() {
+            try {
+                const response = await fetch('/api/ai/security-summary?hours=24');
+                const data = await response.json();
+                
+                if (data.status === 'success' && data.summary) {
+                    displayAISecuritySummary(data.summary);
+                    document.getElementById('ai-analysis-status').textContent = 'Active';
+                    document.getElementById('ai-analysis-status').className = 'badge bg-success text-white';
+                } else {
+                    throw new Error(data.error || 'AI analysis failed');
+                }
+            } catch (error) {
+                console.error('AI analysis error:', error);
+                displayAIError(error.message);
+            }
+        }
+        
+        function displayAISecuritySummary(summary) {
+            const content = document.getElementById('ai-summary-content');
+            const stats = summary.statistics;
+            
+            const threatLevelColor = getThreatLevelColor(summary.threat_level);
+            const threatLevelIcon = getThreatLevelIcon(summary.threat_level);
+            
+            content.innerHTML = `
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="me-3">
+                                        <i class="${threatLevelIcon} display-6" style="color: ${summary.status_color}"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="mb-0">Threat Level: <span class="badge ${threatLevelColor}">${summary.threat_level}</span></h4>
+                                        <small class="text-muted">Last 24 hours analysis</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="row text-center">
+                                    <div class="col-6">
+                                        <div class="border rounded p-2 mb-2">
+                                            <h5 class="text-primary mb-0">${stats.total_alerts}</h5>
+                                            <small class="text-muted">Total Alerts</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="border rounded p-2 mb-2">
+                                            <h5 class="text-danger mb-0">${stats.high_priority_threats}</h5>
+                                            <small class="text-muted">High Priority</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="border rounded p-2 mb-2">
+                                            <h5 class="text-warning mb-0">${stats.unique_attackers}</h5>
+                                            <small class="text-muted">Unique IPs</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="border rounded p-2 mb-2">
+                                            <h5 class="text-info mb-0">${stats.total_blocks}</h5>
+                                            <small class="text-muted">Blocked</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h6 class="mb-2">
+                                    <i class="bi bi-pie-chart"></i> Threat Severity Distribution
+                                </h6>
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small>Critical</small>
+                                        <span class="badge bg-danger">${summary.severity_breakdown.CRITICAL}</span>
+                                    </div>
+                                    <div class="progress mb-2" style="height: 8px;">
+                                        <div class="progress-bar bg-danger" style="width: ${getPercentage(summary.severity_breakdown.CRITICAL, stats.total_alerts)}%"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small>High</small>
+                                        <span class="badge bg-warning">${summary.severity_breakdown.HIGH}</span>
+                                    </div>
+                                    <div class="progress mb-2" style="height: 8px;">
+                                        <div class="progress-bar bg-warning" style="width: ${getPercentage(summary.severity_breakdown.HIGH, stats.total_alerts)}%"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-2">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small>Medium</small>
+                                        <span class="badge bg-info">${summary.severity_breakdown.MEDIUM}</span>
+                                    </div>
+                                    <div class="progress mb-2" style="height: 8px;">
+                                        <div class="progress-bar bg-info" style="width: ${getPercentage(summary.severity_breakdown.MEDIUM, stats.total_alerts)}%"></div>
+                                    </div>
+                                </div>
+                                
+                                ${summary.top_threat_types.length > 0 ? `
+                                <h6 class="mt-3 mb-2">
+                                    <i class="bi bi-list-ol"></i> Top Threat Types
+                                </h6>
+                                <ul class="list-unstyled">
+                                    ${summary.top_threat_types.slice(0, 3).map(([type, count]) => `
+                                        <li class="d-flex justify-content-between align-items-center mb-1">
+                                            <small>${type}</small>
+                                            <span class="badge bg-light text-dark">${count}</span>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="border-top pt-3">
+                            <h6 class="mb-2">
+                                <i class="bi bi-lightbulb"></i> AI Recommendations
+                            </h6>
+                            <ul class="list-unstyled">
+                                ${summary.recommendations.map(rec => `
+                                    <li class="mb-1">
+                                        <i class="bi bi-check-circle text-success"></i> ${rec}
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="mb-3">
+                                <i class="bi bi-robot display-1" style="color: ${summary.status_color}"></i>
+                                <h6 class="text-muted">SecuAI Intelligence</h6>
+                            </div>
+                            
+                            ${summary.recent_activity.length > 0 ? `
+                            <div class="card bg-dark border-secondary">
+                                <div class="card-header bg-dark text-white py-2">
+                                    <small><i class="bi bi-clock"></i> Recent Activity</small>
+                                </div>
+                                <div class="card-body p-2">
+                                    ${summary.recent_activity.slice(0, 5).map(activity => `
+                                        <div class="d-flex justify-content-between align-items-center mb-2 small">
+                                            <code class="text-info">${activity.ip}</code>
+                                            <span class="badge ${getSeverityBadgeClass(activity.severity)}">${activity.severity}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <div class="mt-3">
+                                <button class="btn btn-sm btn-outline-primary" onclick="window.location.href='/alerts'">
+                                    <i class="bi bi-eye"></i> View All Alerts
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function displayAIError(message) {
+            const content = document.getElementById('ai-summary-content');
+            document.getElementById('ai-analysis-status').textContent = 'Error';
+            document.getElementById('ai-analysis-status').className = 'badge bg-danger text-white';
+            
+            content.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="bi bi-exclamation-triangle display-4 text-warning"></i>
+                    <h5 class="mt-3">AI Analysis Unavailable</h5>
+                    <p class="text-muted">${message}</p>
+                    <button class="btn btn-outline-primary" onclick="refreshAIAnalysis()">
+                        <i class="bi bi-arrow-clockwise"></i> Retry Analysis
+                    </button>
+                </div>
+            `;
+        }
+        
+        function getThreatLevelColor(level) {
+            switch(level) {
+                case 'CRITICAL': return 'bg-danger';
+                case 'HIGH': return 'bg-warning';
+                case 'MEDIUM': return 'bg-info';
+                case 'LOW': return 'bg-success';
+                default: return 'bg-secondary';
+            }
+        }
+        
+        function getThreatLevelIcon(level) {
+            switch(level) {
+                case 'CRITICAL': return 'bi bi-exclamation-triangle-fill';
+                case 'HIGH': return 'bi bi-exclamation-circle-fill';
+                case 'MEDIUM': return 'bi bi-info-circle-fill';
+                case 'LOW': return 'bi bi-check-circle-fill';
+                default: return 'bi bi-question-circle-fill';
+            }
+        }
+        
+        function getSeverityBadgeClass(severity) {
+            switch(severity) {
+                case 'CRITICAL': return 'bg-danger';
+                case 'HIGH': return 'bg-warning';
+                case 'MEDIUM': return 'bg-info';
+                case 'LOW': return 'bg-success';
+                default: return 'bg-secondary';
+            }
+        }
+        
+        function getPercentage(value, total) {
+            return total > 0 ? Math.round((value / total) * 100) : 0;
+        }
+        
+        function refreshAIAnalysis() {
+            document.getElementById('ai-analysis-status').textContent = 'Loading...';
+            document.getElementById('ai-analysis-status').className = 'badge bg-light text-dark';
+            
+            const content = document.getElementById('ai-summary-content');
+            content.innerHTML = `
+                <div class="d-flex justify-content-center align-items-center py-4">
+                    <div class="spinner-border text-primary me-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="text-muted">AI is analyzing your security posture...</span>
+                </div>
+            `;
+            
+            loadAISecuritySummary();
+        }
+        
+        // Add AI analysis to page initialization
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSystemCharts();
+            loadSystemStats();
+            loadTopProcesses();
+            loadAISecuritySummary(); // Load AI analysis on page load
+            
+            // Start auto-refresh every 5 seconds for system stats
+            systemMonitoringInterval = setInterval(() => {
+                loadSystemStats();
+                loadTopProcesses();
+            }, 5000);
+            
+            // Refresh AI analysis every 2 minutes
+            setInterval(() => {
+                loadAISecuritySummary();
+            }, 120000);
+        });
         
         // Cleanup on page unload
         window.addEventListener('beforeunload', function() {
