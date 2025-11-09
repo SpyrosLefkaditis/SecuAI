@@ -466,6 +466,115 @@ def api_alerts():
         return jsonify({'error': 'Failed to load alerts'}), 500
 
 
+@app.route('/api/system/stats')
+@login_required
+def api_system_stats():
+    """API endpoint for system statistics"""
+    try:
+        import psutil
+        import subprocess
+        
+        # Get CPU usage
+        cpu_percent = psutil.cpu_percent(interval=1)
+        cpu_count = psutil.cpu_count()
+        
+        # Get memory usage
+        memory = psutil.virtual_memory()
+        memory_percent = memory.percent
+        memory_used = memory.used // (1024**3)  # GB
+        memory_total = memory.total // (1024**3)  # GB
+        
+        # Get disk usage
+        disk = psutil.disk_usage('/')
+        disk_percent = (disk.used / disk.total) * 100
+        disk_used = disk.used // (1024**3)  # GB
+        disk_total = disk.total // (1024**3)  # GB
+        
+        # Get load average
+        load_avg = psutil.getloadavg()
+        
+        # Get system uptime
+        boot_time = psutil.boot_time()
+        uptime_seconds = time.time() - boot_time
+        uptime_hours = int(uptime_seconds // 3600)
+        uptime_minutes = int((uptime_seconds % 3600) // 60)
+        uptime = f"{uptime_hours}h {uptime_minutes}m"
+        
+        # Get running processes count
+        processes_count = len(psutil.pids())
+        
+        # Get network connections count
+        network_connections = len(psutil.net_connections())
+        
+        # Get failed services (systemd)
+        try:
+            failed_services_cmd = subprocess.run(
+                ['systemctl', '--failed', '--no-pager', '--no-legend'],
+                capture_output=True, text=True, timeout=5
+            )
+            failed_services_count = len([line for line in failed_services_cmd.stdout.strip().split('\n') if line.strip()])
+        except:
+            failed_services_count = 0
+        
+        return jsonify({
+            'cpu': {
+                'percent': round(cpu_percent, 1),
+                'count': cpu_count
+            },
+            'memory': {
+                'percent': round(memory_percent, 1),
+                'used_gb': memory_used,
+                'total_gb': memory_total
+            },
+            'disk': {
+                'percent': round(disk_percent, 1),
+                'used_gb': disk_used,
+                'total_gb': disk_total
+            },
+            'load_avg': [round(x, 2) for x in load_avg],
+            'uptime': uptime,
+            'processes_count': processes_count,
+            'failed_services': failed_services_count,
+            'network_connections': network_connections,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"System stats API error: {e}")
+        return jsonify({'error': 'Failed to get system stats'}), 500
+
+
+@app.route('/api/system/processes')
+@login_required
+def api_system_processes():
+    """API endpoint for top processes"""
+    try:
+        import psutil
+        
+        processes = []
+        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent', 'username', 'status']):
+            try:
+                processes.append({
+                    'pid': proc.info['pid'],
+                    'name': proc.info['name'][:20],  # Truncate long names
+                    'cpu_percent': round(proc.info['cpu_percent'] or 0, 1),
+                    'memory_percent': round(proc.info['memory_percent'] or 0, 1),
+                    'username': proc.info['username'][:10] if proc.info['username'] else 'unknown',
+                    'status': proc.info['status']
+                })
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        # Sort by CPU usage and get top 10
+        top_processes = sorted(processes, key=lambda x: x['cpu_percent'], reverse=True)[:10]
+        
+        return jsonify({'processes': top_processes})
+        
+    except Exception as e:
+        logger.error(f"Processes API error: {e}")
+        return jsonify({'error': 'Failed to get processes'}), 500
+
+
 @app.route('/analysis')
 @login_required
 def analysis_page():

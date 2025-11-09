@@ -11,6 +11,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <!-- Plotly.js for System Monitoring Charts -->
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
 </head>
 <body>
     <!-- Navigation -->
@@ -140,47 +142,127 @@
         </div>
 
         <div class="row">
-            <!-- Left Column: Log Analysis and Alerts -->
+            <!-- Left Column: System Monitoring -->
             <div class="col-lg-8">
-                <!-- Log Analysis Section -->
+                <!-- System Performance Dashboard -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-speedometer2"></i> System Performance
+                        </h5>
+                        <div>
+                            <span class="badge bg-success" id="monitoring-status">Live</span>
+                            <button class="btn btn-sm btn-outline-primary" onclick="refreshSystemStats()">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Real-time System Charts -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card bg-dark border-secondary">
+                                    <div class="card-header bg-dark text-white">
+                                        <h6 class="mb-0"><i class="bi bi-cpu"></i> CPU Usage</h6>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <div id="cpu-chart" style="height: 200px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-dark border-secondary">
+                                    <div class="card-header bg-dark text-white">
+                                        <h6 class="mb-0"><i class="bi bi-memory"></i> Memory Usage</h6>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <div id="memory-chart" style="height: 200px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card bg-dark border-secondary">
+                                    <div class="card-header bg-dark text-white">
+                                        <h6 class="mb-0"><i class="bi bi-hdd"></i> Disk Usage</h6>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <div id="disk-chart" style="height: 200px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-dark border-secondary">
+                                    <div class="card-header bg-dark text-white">
+                                        <h6 class="mb-0"><i class="bi bi-activity"></i> Load Average</h6>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <div id="load-chart" style="height: 200px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- System Stats Summary -->
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h4 class="text-success" id="uptime-display">--</h4>
+                                    <small class="text-muted">System Uptime</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h4 class="text-info" id="processes-count">--</h4>
+                                    <small class="text-muted">Running Processes</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h4 class="text-warning" id="failed-services">--</h4>
+                                    <small class="text-muted">Failed Services</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h4 class="text-primary" id="network-connections">--</h4>
+                                    <small class="text-muted">Network Connections</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Processes -->
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-search"></i> Log Analysis
+                            <i class="bi bi-list-task"></i> Top 10 Processes
                         </h5>
                     </div>
                     <div class="card-body">
-                        <!-- File Upload -->
-                        <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data" class="mb-3">
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <input type="file" class="form-control" id="logfile" name="logfile" accept=".log,.txt">
-                                </div>
-                                <div class="col-md-4">
-                                    <button type="submit" class="btn btn-primary w-100">
-                                        <i class="bi bi-upload"></i> Upload & Analyze
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
-
-                        <!-- Text Analysis -->
-                        <div class="mb-3">
-                            <label for="log-text" class="form-label">Or paste log text:</label>
-                            <textarea class="form-control" id="log-text" rows="4" 
-                                placeholder="Paste your log entries here for real-time analysis..."></textarea>
-                        </div>
-                        
-                        <button type="button" class="btn btn-success" onclick="analyzeLogText()">
-                            <i class="bi bi-cpu"></i> Analyze Text
-                        </button>
-                        
-                        <!-- Analysis Results -->
-                        <div id="analysis-results" class="mt-3" style="display: none;">
-                            <h6>Analysis Results:</h6>
-                            <div class="alert alert-info">
-                                <div id="analysis-summary"></div>
-                            </div>
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>PID</th>
+                                        <th>Process</th>
+                                        <th>CPU %</th>
+                                        <th>Memory %</th>
+                                        <th>User</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="processes-table">
+                                    <tr>
+                                        <td colspan="6" class="text-center">
+                                            <i class="bi bi-hourglass-split"></i> Loading processes...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -271,49 +353,7 @@
             </div>
         </div>
 
-        <!-- API Demo Section -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">
-                            <i class="bi bi-code"></i> API Demo & Testing
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6>Analysis API</h6>
-                                <p class="text-muted">Test the log analysis API directly:</p>
-                                <div class="mb-3">
-                                    <textarea id="api-test-logs" class="form-control" rows="3" 
-                                        placeholder="Enter sample logs for API testing...">Oct 15 10:30:15 server sshd[12345]: Failed password for root from 192.168.1.100 port 22 ssh2
-Oct 15 10:30:20 server sshd[12346]: Failed password for admin from 192.168.1.100 port 22 ssh2</textarea>
-                                </div>
-                                <button class="btn btn-primary" onclick="testAnalysisAPI()">Test API</button>
-                            </div>
-                            <div class="col-md-6">
-                                <h6>Block API</h6>
-                                <p class="text-muted">Test blocking operations:</p>
-                                <div class="mb-3">
-                                    <input type="text" id="test-ip" class="form-control" 
-                                           placeholder="IP to test (e.g., 203.0.113.1)" value="203.0.113.1">
-                                </div>
-                                <div class="btn-group">
-                                    <button class="btn btn-warning" onclick="testBlockAPI('recommend')">Recommend</button>
-                                    <button class="btn btn-danger" onclick="testBlockAPI('approve')">Approve</button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="mt-3">
-                            <h6>API Response:</h6>
-                            <pre id="api-response" class="bg-light p-3 rounded" style="display: none;"></pre>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+
     </div>
 
     <!-- Footer -->
@@ -347,9 +387,232 @@ Oct 15 10:30:20 server sshd[12346]: Failed password for admin from 192.168.1.100
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     
     <script>
+        // System monitoring variables
+        let systemMonitoringInterval;
+        let cpuChart, memoryChart, diskChart, loadChart;
+        
+        // Initialize system monitoring on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSystemCharts();
+            loadSystemStats();
+            loadTopProcesses();
+            
+            // Start auto-refresh every 5 seconds
+            systemMonitoringInterval = setInterval(() => {
+                loadSystemStats();
+                loadTopProcesses();
+            }, 5000);
+        });
+        
+        function initializeSystemCharts() {
+            // Dark theme layout for all charts
+            const darkLayout = {
+                paper_bgcolor: '#0a0a0a',
+                plot_bgcolor: '#000000',
+                font: { color: '#ffffff', size: 12 },
+                margin: { l: 40, r: 20, t: 30, b: 40 },
+                showlegend: false
+            };
+            
+            // CPU Chart
+            const cpuData = [{
+                x: [],
+                y: [],
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'CPU %',
+                line: { color: '#22c55e', width: 3 },
+                marker: { color: '#22c55e', size: 6 }
+            }];
+            
+            cpuChart = Plotly.newPlot('cpu-chart', cpuData, {
+                ...darkLayout,
+                title: { text: 'CPU Usage %', font: { color: '#ffffff' } },
+                yaxis: { range: [0, 100], gridcolor: '#333333' },
+                xaxis: { type: 'date', gridcolor: '#333333' }
+            }, { responsive: true });
+            
+            // Memory Chart
+            const memoryData = [{
+                values: [0, 100],
+                labels: ['Used', 'Free'],
+                type: 'pie',
+                hole: 0.6,
+                marker: {
+                    colors: ['#ef4444', '#374151']
+                },
+                textinfo: 'none',
+                hovertemplate: '%{label}: %{value}%<extra></extra>'
+            }];
+            
+            memoryChart = Plotly.newPlot('memory-chart', memoryData, {
+                ...darkLayout,
+                title: { text: 'Memory Usage', font: { color: '#ffffff' } }
+            }, { responsive: true });
+            
+            // Disk Chart
+            const diskData = [{
+                values: [0, 100],
+                labels: ['Used', 'Free'],
+                type: 'pie',
+                hole: 0.6,
+                marker: {
+                    colors: ['#f59e0b', '#374151']
+                },
+                textinfo: 'none',
+                hovertemplate: '%{label}: %{value}%<extra></extra>'
+            }];
+            
+            diskChart = Plotly.newPlot('disk-chart', diskData, {
+                ...darkLayout,
+                title: { text: 'Disk Usage', font: { color: '#ffffff' } }
+            }, { responsive: true });
+            
+            // Load Average Chart
+            const loadData = [{
+                x: ['1 min', '5 min', '15 min'],
+                y: [0, 0, 0],
+                type: 'bar',
+                marker: { color: '#3b82f6' }
+            }];
+            
+            loadChart = Plotly.newPlot('load-chart', loadData, {
+                ...darkLayout,
+                title: { text: 'Load Average', font: { color: '#ffffff' } },
+                yaxis: { gridcolor: '#333333' },
+                xaxis: { gridcolor: '#333333' }
+            }, { responsive: true });
+        }
+        
+        async function loadSystemStats() {
+            try {
+                const response = await fetch('/api/system/stats');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Update system stats summary
+                document.getElementById('uptime-display').textContent = data.uptime;
+                document.getElementById('processes-count').textContent = data.processes_count;
+                document.getElementById('failed-services').textContent = data.failed_services;
+                document.getElementById('network-connections').textContent = data.network_connections;
+                
+                // Update CPU chart
+                const cpuTime = new Date();
+                Plotly.extendTraces('cpu-chart', {
+                    x: [[cpuTime]],
+                    y: [[data.cpu.percent]]
+                }, [0]);
+                
+                // Keep only last 20 points
+                if (cpuChart.data[0].x.length > 20) {
+                    Plotly.relayout('cpu-chart', {
+                        'xaxis.range': [cpuChart.data[0].x[cpuChart.data[0].x.length - 20], cpuTime]
+                    });
+                }
+                
+                // Update Memory chart
+                const memoryUsed = data.memory.percent;
+                const memoryFree = 100 - memoryUsed;
+                Plotly.restyle('memory-chart', {
+                    values: [[memoryUsed, memoryFree]],
+                    'title.text': `Memory: ${data.memory.used_gb}GB / ${data.memory.total_gb}GB (${memoryUsed}%)`
+                });
+                
+                // Update Disk chart
+                const diskUsed = data.disk.percent;
+                const diskFree = 100 - diskUsed;
+                Plotly.restyle('disk-chart', {
+                    values: [[diskUsed, diskFree]],
+                    'title.text': `Disk: ${data.disk.used_gb}GB / ${data.disk.total_gb}GB (${diskUsed.toFixed(1)}%)`
+                });
+                
+                // Update Load Average chart
+                Plotly.restyle('load-chart', {
+                    y: [data.load_avg]
+                });
+                
+                // Update monitoring status
+                document.getElementById('monitoring-status').textContent = 'Live';
+                document.getElementById('monitoring-status').className = 'badge bg-success';
+                
+            } catch (error) {
+                console.error('Error loading system stats:', error);
+                document.getElementById('monitoring-status').textContent = 'Error';
+                document.getElementById('monitoring-status').className = 'badge bg-danger';
+            }
+        }
+        
+        async function loadTopProcesses() {
+            try {
+                const response = await fetch('/api/system/processes');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                const tbody = document.getElementById('processes-table');
+                tbody.innerHTML = '';
+                
+                data.processes.forEach(proc => {
+                    const statusColor = proc.status === 'running' ? 'success' : 
+                                       proc.status === 'sleeping' ? 'info' : 'warning';
+                    
+                    const row = `
+                        <tr>
+                            <td><code>${proc.pid}</code></td>
+                            <td><strong>${proc.name}</strong></td>
+                            <td>
+                                <div class="progress" style="height: 15px;">
+                                    <div class="progress-bar bg-primary" style="width: ${Math.min(proc.cpu_percent, 100)}%">
+                                        ${proc.cpu_percent}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="progress" style="height: 15px;">
+                                    <div class="progress-bar bg-warning" style="width: ${Math.min(proc.memory_percent, 100)}%">
+                                        ${proc.memory_percent}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td><small>${proc.username}</small></td>
+                            <td><span class="badge bg-${statusColor}">${proc.status}</span></td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+                
+            } catch (error) {
+                console.error('Error loading processes:', error);
+                document.getElementById('processes-table').innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center text-danger">
+                            <i class="bi bi-exclamation-triangle"></i> Error loading processes
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+        
+        function refreshSystemStats() {
+            loadSystemStats();
+            loadTopProcesses();
+        }
+        
         function refreshOverview() {
             location.reload();
         }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (systemMonitoringInterval) {
+                clearInterval(systemMonitoringInterval);
+            }
+        });
     </script>
 </body>
 </html>
