@@ -341,10 +341,57 @@ def logout():
 @app.route('/alerts')
 @login_required
 def alerts_page():
-    """Security alerts page"""
+    """Security alerts page with date filtering"""
     try:
-        alerts = Alert.query.order_by(Alert.created_at.desc()).limit(100).all()
-        return render_template('alerts.html', alerts=alerts)
+        # Get date range parameters
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        
+        # Default to last 48 hours if no dates specified
+        if not start_date_str or not end_date_str:
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(hours=48)
+        else:
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d') + timedelta(days=1) - timedelta(seconds=1)
+            except ValueError:
+                # Fallback to 48 hours if date parsing fails
+                end_date = datetime.utcnow()
+                start_date = end_date - timedelta(hours=48)
+        
+        # Query alerts within date range
+        alerts_query = Alert.query.filter(
+            Alert.created_at >= start_date,
+            Alert.created_at <= end_date
+        ).order_by(Alert.created_at.desc())
+        
+        # Get all alerts for the date range (remove limit to show all within timeframe)
+        alerts = alerts_query.all()
+        
+        # Get summary statistics for the date range
+        total_alerts = len(alerts)
+        critical_alerts = len([a for a in alerts if a.confidence >= 0.8])
+        medium_alerts = len([a for a in alerts if 0.6 <= a.confidence < 0.8])
+        low_alerts = len([a for a in alerts if a.confidence < 0.6])
+        
+        # Get unique IPs
+        unique_ips = len(set([a.ip for a in alerts]))
+        
+        date_range_info = {
+            'start_date': start_date,
+            'end_date': end_date,
+            'start_date_str': start_date.strftime('%Y-%m-%d'),
+            'end_date_str': end_date.strftime('%Y-%m-%d'),
+            'total_alerts': total_alerts,
+            'critical_alerts': critical_alerts,
+            'medium_alerts': medium_alerts,
+            'low_alerts': low_alerts,
+            'unique_ips': unique_ips,
+            'is_default_range': not start_date_str and not end_date_str
+        }
+        
+        return render_template('alerts.html', alerts=alerts, date_range=date_range_info)
     except Exception as e:
         logger.error(f"Alerts page error: {e}")
         flash(f'Error loading alerts: {str(e)}')
@@ -352,6 +399,71 @@ def alerts_page():
 
 
 
+
+@app.route('/api/alerts')
+@login_required
+def api_alerts():
+    """API endpoint for alerts with date filtering"""
+    try:
+        # Get date range parameters
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        
+        # Default to last 48 hours if no dates specified
+        if not start_date_str or not end_date_str:
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(hours=48)
+        else:
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d') + timedelta(days=1) - timedelta(seconds=1)
+            except ValueError:
+                return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        
+        # Query alerts within date range
+        alerts_query = Alert.query.filter(
+            Alert.created_at >= start_date,
+            Alert.created_at <= end_date
+        ).order_by(Alert.created_at.desc())
+        
+        alerts = alerts_query.all()
+        
+        # Format alerts for JSON response
+        alerts_data = []
+        for alert in alerts:
+            alerts_data.append({
+                'id': alert.id,
+                'ip': alert.ip,
+                'reason': alert.reason,
+                'confidence': alert.confidence,
+                'source': alert.source,
+                'created_at': alert.created_at.isoformat(),
+                'details': alert.details
+            })
+        
+        # Get summary statistics
+        total_alerts = len(alerts)
+        critical_alerts = len([a for a in alerts if a.confidence >= 0.8])
+        medium_alerts = len([a for a in alerts if 0.6 <= a.confidence < 0.8])
+        low_alerts = len([a for a in alerts if a.confidence < 0.6])
+        unique_ips = len(set([a.ip for a in alerts]))
+        
+        return jsonify({
+            'alerts': alerts_data,
+            'summary': {
+                'total_alerts': total_alerts,
+                'critical_alerts': critical_alerts,
+                'medium_alerts': medium_alerts,
+                'low_alerts': low_alerts,
+                'unique_ips': unique_ips,
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat()
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Alerts API error: {e}")
+        return jsonify({'error': 'Failed to load alerts'}), 500
 
 
 @app.route('/analysis')

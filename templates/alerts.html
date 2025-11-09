@@ -73,6 +73,97 @@
             </div>
         </div>
 
+        <!-- Date Range Filter -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-calendar-range"></i> Date Range Filter
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-end">
+                    <div class="col-md-3">
+                        <label for="start-date" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="start-date" 
+                               value="{{ date_range.start_date_str if date_range else '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="end-date" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="end-date" 
+                               value="{{ date_range.end_date_str if date_range else '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="quick-filter" class="form-label">Quick Filters</label>
+                        <select class="form-select" id="quick-filter" onchange="applyQuickFilter()">
+                            <option value="custom">Custom Range</option>
+                            <option value="24h" {% if date_range and date_range.is_default_range %}selected{% endif %}>Last 24 Hours</option>
+                            <option value="48h" selected>Last 48 Hours</option>
+                            <option value="7d">Last 7 Days</option>
+                            <option value="30d">Last 30 Days</option>
+                            <option value="all">All Time</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-success w-100" onclick="filterAlerts()">
+                            <i class="bi bi-funnel"></i> Apply Filter
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Current Range Info -->
+                {% if date_range %}
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i> 
+                        {% if date_range.is_default_range %}
+                        Showing alerts from the last 48 hours
+                        {% else %}
+                        Showing alerts from {{ date_range.start_date.strftime('%B %d, %Y') }} to {{ date_range.end_date.strftime('%B %d, %Y') }}
+                        {% endif %}
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Summary Statistics -->
+        {% if date_range %}
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h3 class="text-primary">{{ date_range.total_alerts }}</h3>
+                        <p class="text-muted mb-0">Total Alerts</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h3 class="text-danger">{{ date_range.critical_alerts }}</h3>
+                        <p class="text-muted mb-0">Critical (≥80%)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h3 class="text-warning">{{ date_range.medium_alerts }}</h3>
+                        <p class="text-muted mb-0">Medium (60-79%)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h3 class="text-info">{{ date_range.unique_ips }}</h3>
+                        <p class="text-muted mb-0">Unique IPs</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages() %}
             {% if messages %}
@@ -257,6 +348,138 @@
             filterAlerts();
         }
         
+        function applyQuickFilter() {
+            const quickFilter = document.getElementById('quick-filter').value;
+            const endDate = new Date();
+            let startDate = new Date();
+            
+            const endDateStr = endDate.toISOString().split('T')[0];
+            
+            switch(quickFilter) {
+                case '24h':
+                    startDate.setHours(startDate.getHours() - 24);
+                    break;
+                case '48h':
+                    startDate.setHours(startDate.getHours() - 48);
+                    break;
+                case '7d':
+                    startDate.setDate(startDate.getDate() - 7);
+                    break;
+                case '30d':
+                    startDate.setDate(startDate.getDate() - 30);
+                    break;
+                case 'all':
+                    startDate.setFullYear(2020, 0, 1); // Very old date to get all alerts
+                    break;
+                default:
+                    return; // Custom range - don't update dates
+            }
+            
+            if (quickFilter !== 'custom') {
+                const startDateStr = startDate.toISOString().split('T')[0];
+                document.getElementById('start-date').value = startDateStr;
+                document.getElementById('end-date').value = endDateStr;
+                
+                // Auto-apply filter for quick selections
+                filterAlerts();
+            }
+        }
+        
+        function filterAlerts() {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            
+            if (!startDate || !endDate) {
+                alert('Please select both start and end dates');
+                return;
+            }
+            
+            // Show loading state
+            const button = event.target;
+            const originalHtml = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
+            
+            // Make API request to filter alerts
+            const url = `/alerts?start_date=${startDate}&end_date=${endDate}`;
+            
+            // Redirect to filtered URL - simpler than AJAX for now
+            window.location.href = url;
+        }
+        
+        async function loadAlertsAjax(startDate, endDate) {
+            try {
+                const response = await fetch(`/api/alerts?start_date=${startDate}&end_date=${endDate}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Update summary statistics
+                document.querySelector('.col-md-3:nth-child(1) h3').textContent = data.summary.total_alerts;
+                document.querySelector('.col-md-3:nth-child(2) h3').textContent = data.summary.critical_alerts;
+                document.querySelector('.col-md-3:nth-child(3) h3').textContent = data.summary.medium_alerts;
+                document.querySelector('.col-md-3:nth-child(4) h3').textContent = data.summary.unique_ips;
+                
+                // Update alerts table
+                updateAlertsTable(data.alerts);
+                
+                // Update date range info
+                const startDateObj = new Date(data.summary.start_date);
+                const endDateObj = new Date(data.summary.end_date);
+                const rangeInfo = document.querySelector('.text-muted small');
+                if (rangeInfo) {
+                    rangeInfo.innerHTML = `<i class="bi bi-info-circle"></i> Showing alerts from ${startDateObj.toLocaleDateString()} to ${endDateObj.toLocaleDateString()}`;
+                }
+                
+            } catch (error) {
+                console.error('Error loading alerts:', error);
+                alert('Error loading alerts: ' + error.message);
+            }
+        }
+        
+        function updateAlertsTable(alerts) {
+            const tbody = document.querySelector('#alerts-table tbody');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            
+            alerts.forEach(alert => {
+                const confidence = (alert.confidence * 100).toFixed(1);
+                const confidenceClass = alert.confidence >= 0.8 ? 'danger' : (alert.confidence >= 0.6 ? 'warning' : 'info');
+                const alertDate = new Date(alert.created_at).toLocaleString();
+                
+                const row = `
+                    <tr data-ip="${alert.ip}" data-confidence="${alert.confidence}" data-type="${alert.reason}">
+                        <td><code class="text-${confidenceClass}">${alert.ip}</code></td>
+                        <td>${alert.reason}</td>
+                        <td>
+                            <div class="progress" style="height: 20px;">
+                                <div class="progress-bar bg-${confidenceClass}" 
+                                     style="width: ${confidence}%">
+                                    ${confidence}%
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="badge bg-secondary">${alert.source}</span></td>
+                        <td><small>${alertDate}</small></td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-sm btn-outline-danger" onclick="blockIPFromAlert('${alert.ip}', '${alert.reason}')">
+                                    <i class="bi bi-ban"></i> Block
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="viewDetails(${alert.id})">
+                                    <i class="bi bi-eye"></i> Details
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+        
         function refreshAlerts() {
             location.reload();
         }
@@ -265,6 +488,42 @@
             // Show alert details in a modal or redirect
             alert('Alert details functionality - to be implemented');
         }
+        
+        function blockIPFromAlert(ip, reason) {
+            if (confirm(`Block IP ${ip}?`)) {
+                fetch('/api/firewall/blacklist', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ ip: ip, reason: reason })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(`IP ${ip} has been blocked successfully`);
+                        // Optionally refresh alerts or update UI
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Network error occurred');
+                });
+            }
+        }
+        
+        // Initialize with 48-hour default on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set the quick filter to show current selection
+            const quickFilter = document.getElementById('quick-filter');
+            {% if date_range and date_range.is_default_range %}
+            quickFilter.value = '48h';
+            {% else %}
+            quickFilter.value = 'custom';
+            {% endif %}
+        });
     </script>
 </body>
 </html>
