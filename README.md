@@ -115,11 +115,13 @@ python threat_simulator.py
 ### 5. Run Tests (Optional)
 
 ```bash
-# Run all tests
-python run_tests.py
-
-# Or with pytest directly
+# Run all tests with pytest
 pytest tests/ -v
+
+# Run specific test modules
+pytest tests/test_analyzer.py -v      # Analysis engine tests
+pytest tests/test_web.py -v           # Web application tests
+pytest tests/test_blocker.py -v       # Blocking system tests
 ```
 
 ## 🐳 Docker Deployment
@@ -372,19 +374,20 @@ pytest --cov=. --cov-report=html
 # Open coverage_html/index.html in browser
 ```
 
-### Manual Testing
+### Manual API Testing
 
-Use the built-in test data:
+Test the API endpoints:
 
 ```bash
-# Test with sample logs
-curl -X POST http://localhost:5000/upload \
-  -F "logfile=@sample_auth.log"
-
 # Load honeypot feed
 curl -X POST http://localhost:5000/api/honeypot \
   -H "Content-Type: application/json" \
   -d @honeypot_feed.json
+
+# Analyze text logs directly
+curl -X POST http://localhost:5000/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"log_text": "Failed password for root from 203.0.113.45 port 22"}'
 ```
 
 ## 🔒 Security Considerations
