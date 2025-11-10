@@ -1,17 +1,33 @@
-# SecuAI - Log & Network Anomaly Detection System
+# 🤖 SecuAI - AI-Powered Security Intelligence Platform
 
-🚀 **Hackathon MVP** - A complete security monitoring solution with rule-based detection and optional AI enrichment.
+🚀 **Cloud Run Hackathon 2025** - Intelligent security monitoring powered by Google Gemini 2.0 Flash
 
 ![SecuAI Dashboard](https://img.shields.io/badge/Status-Hackathon%20Ready-brightgreen)
+![AI Powered](https://img.shields.io/badge/AI-Gemini%202.0%20Flash-blue)
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 ![Flask](https://img.shields.io/badge/Flask-Web%20Framework-red)
 ![Docker](https://img.shields.io/badge/Docker-Ready-blue)
+![Cloud Run](https://img.shields.io/badge/Cloud%20Run-Optimized-green)
+
+> **Transform raw security logs into actionable intelligence with the power of generative AI**
 
 ## 🎯 Project Overview
 
-SecuAI is a comprehensive log and network anomaly detection system designed for hackathons and rapid prototyping. It provides:
+**SecuAI** revolutionizes security monitoring by combining traditional rule-based detection with **Google Gemini 2.0 Flash AI** to transform raw security logs into intelligent, actionable insights. 
 
+### 🧠 The AI Advantage
+
+Traditional security tools tell you **"something happened"**. SecuAI's AI tells you:
+- ✅ **What** the attack is trying to achieve
+- ✅ **Why** it's dangerous (risk scoring)
+- ✅ **How** to respond (step-by-step recommendations)
+- ✅ **Which** techniques are being used (MITRE ATT&CK patterns)
+
+SecuAI is an AI-powered security monitoring system that combines traditional rule-based detection with cutting-edge generative AI to provide intelligent threat analysis and actionable insights. Designed for hackathons and rapid prototyping, it delivers:
+
+- **🤖 AI-Powered Threat Analysis** using Google Gemini 2.0 Flash for intelligent threat assessment
 - **Real-time log analysis** with rule-based threat detection
+- **Smart threat insights** with severity scoring, attack patterns, and remediation recommendations
 - **Web dashboard** for monitoring and management
 - **API endpoints** for integration and automation  
 - **Simulated blocking** with safety controls
@@ -141,6 +157,34 @@ gcloud run deploy secuai \
 
 ## 📊 Features Overview
 
+### 🤖 AI-Powered Intelligence
+
+SecuAI leverages **Google Gemini 2.0 Flash** to transform raw security alerts into actionable intelligence:
+
+- **Intelligent Threat Analysis**: AI examines each alert to identify attack patterns, techniques, and intent
+- **Severity Assessment**: Automatic risk scoring (Critical/High/Medium/Low) based on threat context
+- **Attack Pattern Recognition**: Identifies specific attack types (SQL injection, XSS, brute force, etc.)
+- **Remediation Recommendations**: AI-generated step-by-step response actions
+- **Rate Limiting & Caching**: Efficient API usage with intelligent request throttling
+- **Fallback Protection**: Graceful degradation if AI service is unavailable
+
+**AI Analysis Example:**
+```
+IP: 203.0.113.45
+Attack Type: SQL Injection + Directory Traversal
+Severity: CRITICAL
+Risk Score: 95/100
+
+Analysis: Automated attack tool attempting database compromise
+through SQL injection combined with file system access attempts.
+
+Recommended Actions:
+1. Block IP immediately at firewall level
+2. Review application logs for successful breaches
+3. Update WAF rules to prevent similar attacks
+4. Audit database for unauthorized access
+```
+
 ### 🔍 Detection Capabilities
 
 - **Failed Login Detection**: SSH, FTP, web application login failures
@@ -160,11 +204,13 @@ gcloud run deploy secuai \
 
 ### 🌐 Web Interface
 
-- **Real-time Dashboard**: Live threat monitoring
+- **Real-time Dashboard**: Live threat monitoring with 24-hour statistics
+- **AI Analysis Cards**: Each alert shows AI-powered insights, severity, and recommendations
 - **Interactive Analytics**: Confidence scoring and threat categorization
+- **Smart Loading**: Staggered AI analysis with visual feedback
 - **File Upload**: Drag-and-drop log analysis
 - **API Testing**: Built-in API demonstration tools
-- **Responsive Design**: Mobile-friendly Bootstrap interface
+- **Responsive Design**: Mobile-friendly Bootstrap interface with dark/light themes
 
 ## 🔧 Configuration
 
@@ -185,14 +231,13 @@ SECRET_KEY=your-secret-key-here
 ADMIN_EMAIL=admin@yourdomain.com
 ADMIN_PASSWORD=YourSecurePassword123!
 
+# AI Configuration (REQUIRED for AI features)
+GEMINI_API_KEY=your-gemini-api-key-here  # Get from https://aistudio.google.com/apikey
+
 # Blocking behavior
 SIMULATE_BLOCKS=true          # Keep true for safety
 REAL_BLOCKING_ENABLED=false   # Enable only in controlled environments
 CONFIDENCE_THRESHOLD=0.7      # Minimum confidence for alerts
-
-# ML Enhancement (optional)
-ML_ENABLED=false
-ML_ENDPOINT=https://your-ml-service.com/analyze
 ```
 
 ### Database Configuration
@@ -229,6 +274,31 @@ curl -X POST http://localhost:5000/api/analyze \
     }
   ],
   "count": 1
+}
+```
+
+### AI Analysis API
+
+```bash
+# Get AI-powered analysis for an alert
+curl -X GET http://localhost:5000/api/ai-analysis/1
+
+# Response
+{
+  "success": true,
+  "analysis": {
+    "severity": "CRITICAL",
+    "risk_score": 95,
+    "attack_type": "SQL Injection + Directory Traversal",
+    "summary": "Automated attack tool attempting database compromise...",
+    "details": "The attacker is using SQL injection techniques combined with...",
+    "recommendations": [
+      "Block IP immediately at firewall level",
+      "Review application logs for successful breaches",
+      "Update WAF rules to prevent similar attacks"
+    ],
+    "confidence": 0.92
+  }
 }
 ```
 
@@ -457,14 +527,31 @@ python app.py
 
 ## 🎖️ Credits
 
-**SecuAI** - Built for hackathons and rapid security prototyping
+**SecuAI** - AI-Powered Security Monitoring for Modern Threats
 
+- **AI Engine**: Google Gemini 2.0 Flash for intelligent threat analysis
 - **Backend**: Flask, SQLAlchemy, Python 3.11+
 - **Frontend**: Bootstrap 5, jQuery, HTML5
 - **Database**: SQLite (development), PostgreSQL (production)
 - **Deployment**: Docker, Google Cloud Run
 - **Testing**: pytest, coverage
-- **Security**: Rule-based detection + ML enrichment
+- **Security**: Rule-based detection + AI-powered analysis
+
+### Why Gemini 2.0 Flash?
+
+We chose Google's Gemini 2.0 Flash model for several key reasons:
+
+1. **Speed**: Flash model provides rapid analysis (<2s per alert) perfect for real-time security monitoring
+2. **Intelligence**: Advanced reasoning capabilities understand complex attack patterns and relationships
+3. **Context Understanding**: Excellent at analyzing security logs and generating actionable recommendations
+4. **Cost Efficiency**: Optimized pricing for high-volume security analysis
+5. **API Stability**: Enterprise-grade reliability with rate limiting and retry logic built-in
+
+Our implementation includes:
+- **Smart Rate Limiting**: 60 requests/minute with automatic throttling
+- **Intelligent Caching**: 5-minute cache TTL to reduce API calls for similar threats
+- **Retry Logic**: Exponential backoff for transient failures
+- **Graceful Degradation**: Falls back to rule-based analysis if AI is unavailable
 
 ---
 

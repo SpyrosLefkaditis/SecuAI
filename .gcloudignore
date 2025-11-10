@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Git
+.git
+.gitignore
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+test_*.py
+*_test.py
+tests/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+secuai.db
+
+# Logs
+*.log
+/logs/
+/var/
+
+# Documentation
+README.md
+*.md
+!requirements.txt
+
+# Scripts
+generate_fresh_alerts.py
+threat_simulator.py
+test_ai.py
+deploy.sh
+
+# Other
+.env
+.env.cloud
+*.backup
+sample_auth.log
