@@ -89,7 +89,30 @@ python app.py
 # 🔧 Admin Panel: http://localhost:5000/admin
 ```
 
-### 4. Test the System
+### 4. See It In Action
+
+**Option A: Quick Demo (No setup required)**
+```bash
+# Generate sample alerts to see AI analysis in action
+python generate_fresh_alerts.py
+
+# Then open the dashboard and see AI-powered threat analysis!
+# http://localhost:5000
+```
+
+**Option B: Simulate Real Attacks**
+```bash
+# Start the Flask app in one terminal
+python app.py
+
+# In another terminal, run the threat simulator
+python threat_simulator.py
+
+# The simulator will generate realistic attack traffic
+# Watch the dashboard populate with AI-analyzed threats in real-time!
+```
+
+### 5. Run Tests (Optional)
 
 ```bash
 # Run all tests
