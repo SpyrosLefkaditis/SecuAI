@@ -126,39 +126,7 @@ docker run -d \
   secuai:latest
 ```
 
-## 🚀 Cloud Run Deployment
-
-### Prerequisites
-
-```bash
-# Install Google Cloud SDK
-curl https://sdk.cloud.google.com | bash
-gcloud init
-gcloud auth configure-docker
-```
-
-### Deploy to Cloud Run
-
-```bash
-# Set your project ID
-export PROJECT_ID="your-gcp-project-id"
-
-# Build and push to Container Registry
-docker build -t gcr.io/$PROJECT_ID/secuai:latest .
-docker push gcr.io/$PROJECT_ID/secuai:latest
-
-# Deploy to Cloud Run
-gcloud run deploy secuai \
-  --image gcr.io/$PROJECT_ID/secuai:latest \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars="SIMULATE_BLOCKS=true,SECRET_KEY=your-secret-key"
-```
-
-**⚠️ Cloud Run Security Note**: Real IP blocking requires external agents or Cloud Firewall API integration. Cloud Run instances operate in simulated mode by default.
-
-## 📊 Features Overview
+##  Features Overview
 
 ### 🤖 AI-Powered Intelligence
 
