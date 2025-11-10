@@ -1,8 +1,8 @@
-# SecuAI - Log and Network Anomaly Detector
-# Multi-stage Dockerfile for production-ready container
+# SecuAI - AI-Powered Security Monitoring Platform
+# Optimized for Google Cloud Run
 
-# Build stage
-FROM python:3.11-slim as builder
+# Use official Python runtime as base image
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
@@ -10,84 +10,53 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
-    g++ \
-    pkg-config \
-    libffi-dev \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
-
-# Production stage
-FROM python:3.11-slim
-
-# Set working directory
-WORKDIR /app
-
-# Create non-root user for security
-RUN groupadd -r secuai && useradd -r -g secuai secuai
-
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y \
     curl \
-    netcat-traditional \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python dependencies from builder stage
-COPY --from=builder /root/.local /home/secuai/.local
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
 
-# Create necessary directories and set permissions
-RUN mkdir -p /app/uploads /app/logs && \
-    chown -R secuai:secuai /app && \
-    chmod +x /app/init_db.py
+# Create necessary directories
+RUN mkdir -p /app/uploads /app/instance /app/logs
 
-# Create .env file with safe defaults
-RUN echo "SECRET_KEY=change-this-in-production" > .env && \
-    echo "ADMIN_EMAIL=admin@secuai.local" >> .env && \
-    echo "ADMIN_PASSWORD=ChangeMe123!" >> .env && \
-    echo "SIMULATE_BLOCKS=true" >> .env && \
-    echo "DEBUG=false" >> .env && \
-    echo "ML_ENABLED=false" >> .env && \
-    echo "REAL_BLOCKING_ENABLED=false" >> .env && \
-    chown secuai:secuai .env
-
-# Update PATH to include user's local bin
-ENV PATH=/home/secuai/.local/bin:$PATH
-ENV PYTHONPATH=/app
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
 ENV FLASK_APP=app.py
-ENV FLASK_ENV=production
+ENV PORT=8080
 
-# Switch to non-root user
-USER secuai
+# Initialize database
+RUN python init_db.py || true
 
-# Initialize database on container start
-RUN python init_db.py
+# Cloud Run uses PORT environment variable (default 8080)
+EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5000/ || exit 1
+# Start application with gunicorn for production
+CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 app:app
 
-# Expose port
-EXPOSE 5000
+# Alternative: Use Flask development server (not recommended for production)
+# CMD python app.py
 
-# Start application
-CMD ["python", "app.py"]
-
-# Build instructions:
-# docker build -t secuai:latest .
-# docker run -p 5000:5000 secuai:latest
-
-# For development with volume mounting:
-# docker run -p 5000:5000 -v $(pwd):/app secuai:latest
-
-# Security notes:
-# - Runs as non-root user
-# - Minimal base image
-# - No sensitive data in image
-# - Health checks enabled
-# - Real blocking disabled by default
+# Build and Deploy Instructions:
+# 
+# 1. Build locally:
+#    docker build -t secuai:latest .
+#
+# 2. Test locally:
+#    docker run -p 8080:8080 -e PORT=8080 secuai:latest
+#
+# 3. Build for Cloud Run:
+#    gcloud builds submit --tag gcr.io/PROJECT-ID/secuai
+#
+# 4. Deploy to Cloud Run:
+#    gcloud run deploy secuai \
+#      --image gcr.io/PROJECT-ID/secuai \
+#      --platform managed \
+#      --region us-central1 \
+#      --allow-unauthenticated \
+#      --set-env-vars="GEMINI_API_KEY=your-key-here"

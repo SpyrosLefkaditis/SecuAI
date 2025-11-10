@@ -82,7 +82,8 @@
                         <div class="d-flex justify-content-between">
                             <div>
                                 <h4 class="card-title">{{ stats.alerts_today }}</h4>
-                                <p class="card-text">Alerts Today</p>
+                                <p class="card-text">Alerts (24h)</p>
+                                <small class="text-white-50">Last 24 hours</small>
                             </div>
                             <div class="align-self-center">
                                 <i class="bi bi-exclamation-triangle fs-1"></i>
@@ -98,7 +99,8 @@
                         <div class="d-flex justify-content-between">
                             <div>
                                 <h4 class="card-title">{{ stats.critical_alerts }}</h4>
-                                <p class="card-text">Critical Alerts</p>
+                                <p class="card-text">Critical (24h)</p>
+                                <small class="text-white-50">High priority</small>
                             </div>
                             <div class="align-self-center">
                                 <i class="bi bi-exclamation-circle fs-1"></i>
@@ -115,6 +117,7 @@
                             <div>
                                 <h4 class="card-title">{{ stats.blocked_ips }}</h4>
                                 <p class="card-text">Blocked IPs</p>
+                                <small class="text-dark-50">Active blocks</small>
                             </div>
                             <div class="align-self-center">
                                 <i class="bi bi-ban fs-1"></i>
@@ -130,7 +133,8 @@
                         <div class="d-flex justify-content-between">
                             <div>
                                 <h4 class="card-title" id="system-status">Online</h4>
-                                <p class="card-text">System Status</p>
+                                <p class="card-text">AI & Monitoring</p>
+                                <small class="text-white-50">System active</small>
                             </div>
                             <div class="align-self-center">
                                 <i class="bi bi-shield-check fs-1"></i>

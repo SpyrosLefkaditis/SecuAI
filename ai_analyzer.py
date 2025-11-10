@@ -7,23 +7,58 @@ Uses Google Gemini AI to provide intelligent security analysis
 import os
 import json
 import logging
-from datetime import datetime
+import time
+import asyncio
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import google.generativeai as genai
+from functools import wraps
 from decouple import config
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+class RateLimiter:
+    """Simple rate limiter for API calls"""
+    def __init__(self, max_calls=10, time_window=60):
+        self.max_calls = max_calls
+        self.time_window = time_window
+        self.calls = []
+    
+    def can_make_call(self):
+        now = datetime.utcnow()
+        # Remove old calls outside the time window
+        self.calls = [call_time for call_time in self.calls 
+                     if (now - call_time).seconds < self.time_window]
+        
+        return len(self.calls) < self.max_calls
+    
+    def record_call(self):
+        self.calls.append(datetime.utcnow())
+    
+    def wait_time(self):
+        if not self.calls:
+            return 0
+        oldest_call = min(self.calls)
+        time_passed = (datetime.utcnow() - oldest_call).seconds
+        return max(0, self.time_window - time_passed)
 
 class AISecurityAnalyzer:
     """AI-powered security threat analysis using Google Gemini"""
     
     def __init__(self, api_key: str = None):
         """Initialize the AI analyzer with Gemini API key"""
-        self.api_key = api_key or config('GEMINI_API_KEY', default=None)
+        self.api_key = api_key or os.getenv('GEMINI_API_KEY', 'AIzaSyDTO00DyoJgtgsMfwQhwfAGZ-Rmy-HOS4Y')
+        
+        # Rate limiter: 10 calls per minute for free tier
+        self.rate_limiter = RateLimiter(max_calls=8, time_window=60)
+        
+        # Cache for recent analyses to avoid duplicate API calls
+        self.analysis_cache = {}
+        self.cache_ttl = 300  # 5 minutes
         
         if not self.api_key:
-            logger.warning("🚫 GEMINI_API_KEY not found in environment variables. AI analysis will be unavailable.")
+            logger.error("No Gemini API key provided")
             self.model = None
             return
             
@@ -64,6 +99,21 @@ class AISecurityAnalyzer:
         if not self.model:
             return self._fallback_analysis(alert_data)
         
+        # Create cache key for this alert
+        cache_key = f"{alert_data.get('ip', 'unknown')}_{alert_data.get('reason', 'unknown')}"[:50]
+        
+        # Check cache first
+        cached_result = self._get_cached_analysis(cache_key)
+        if cached_result:
+            logger.info(f"🔄 Using cached AI analysis for {alert_data.get('ip', 'unknown')}")
+            return cached_result
+        
+        # Check rate limit
+        if not self.rate_limiter.can_make_call():
+            wait_time = self.rate_limiter.wait_time()
+            logger.warning(f"⏱️ Rate limit reached. Using fallback analysis. Wait time: {wait_time}s")
+            return self._fallback_analysis(alert_data, rate_limited=True)
+        
         try:
             # Extract key information from alert
             ip = alert_data.get('ip', 'Unknown')
@@ -84,21 +134,43 @@ class AISecurityAnalyzer:
             # Create comprehensive prompt for AI analysis
             prompt = self._create_analysis_prompt(ip, reason, confidence, source, attack_summary)
             
+            # Record the API call
+            self.rate_limiter.record_call()
+            
             # Generate AI response with retry logic
-            max_retries = 2
+            max_retries = 3
+            retry_delay = 2  # seconds
+            
             for attempt in range(max_retries):
                 try:
                     response = self.model.generate_content(prompt)
                     ai_response = response.text
                     break
                 except Exception as retry_error:
-                    logger.warning(f"AI generation attempt {attempt + 1} failed: {retry_error}")
-                    if attempt == max_retries - 1:
-                        raise retry_error
-                    continue
+                    error_str = str(retry_error).lower()
+                    
+                    if 'quota' in error_str or 'rate limit' in error_str:
+                        logger.warning(f"⚠️ Rate limit hit on attempt {attempt + 1}: {retry_error}")
+                        if attempt < max_retries - 1:
+                            wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                            logger.info(f"⏳ Waiting {wait_time}s before retry...")
+                            time.sleep(wait_time)
+                            continue
+                        else:
+                            logger.error("🚫 Rate limit exceeded, using fallback analysis")
+                            return self._fallback_analysis(alert_data, rate_limited=True)
+                    else:
+                        logger.warning(f"AI generation attempt {attempt + 1} failed: {retry_error}")
+                        if attempt == max_retries - 1:
+                            raise retry_error
+                        time.sleep(retry_delay)
+                        continue
             
             # Parse AI response and structure the analysis
             analysis = self._parse_ai_response(ai_response, alert_data)
+            
+            # Cache the successful analysis
+            self._cache_analysis(cache_key, analysis)
             
             logger.info(f"🧠 AI analysis completed for {ip} - Severity: {analysis.get('severity_level', 'Unknown')}")
             
@@ -231,7 +303,7 @@ Focus on providing actionable insights and clear explanations that both technica
         
         return analysis
     
-    def _fallback_analysis(self, alert_data: dict) -> dict:
+    def _fallback_analysis(self, alert_data: dict, rate_limited: bool = False) -> dict:
         """Provide fallback analysis when AI is unavailable"""
         confidence = alert_data.get('confidence', 0.0)
         reason = alert_data.get('reason', '')
@@ -265,11 +337,13 @@ Focus on providing actionable insights and clear explanations that both technica
             category = 'Security Threat'
             explanation = 'Suspicious activity detected requiring investigation'
         
+        fallback_reason = "Rate limit reached" if rate_limited else "AI service unavailable"
+        
         return {
             'severity_level': severity,
             'threat_category': category,
             'risk_score': risk_score,
-            'explanation': explanation,
+            'explanation': f"{explanation} (Analysis: {fallback_reason})",
             'attack_vector': 'Network-based attack attempt',
             'potential_impact': 'Potential system compromise if successful',
             'recommended_actions': [
@@ -280,16 +354,17 @@ Focus on providing actionable insights and clear explanations that both technica
             'is_automated': True,
             'ai_generated': False,
             'analysis_timestamp': datetime.utcnow().isoformat(),
-            'fallback_analysis': True
+            'fallback_analysis': True,
+            'rate_limited': rate_limited
         }
     
-    def bulk_analyze_alerts(self, alerts: List[dict], max_analyses: int = 10) -> dict:
+    def bulk_analyze_alerts(self, alerts: List[dict], max_analyses: int = 5) -> dict:
         """
         Analyze multiple alerts and provide summary insights
         
         Args:
             alerts: List of alert dictionaries
-            max_analyses: Maximum number of individual analyses to perform
+            max_analyses: Maximum number of individual analyses to perform (reduced for rate limiting)
             
         Returns:
             Dictionary with bulk analysis results
@@ -298,15 +373,28 @@ Focus on providing actionable insights and clear explanations that both technica
             return {'summary': 'No alerts to analyze'}
         
         try:
+            # Reduce max analyses to respect rate limits
+            effective_max = min(max_analyses, 5)  # Limit to 5 for rate limiting
+            
             # Analyze top priority alerts individually
             individual_analyses = []
-            for alert in alerts[:max_analyses]:
+            rate_limited_count = 0
+            
+            for i, alert in enumerate(alerts[:effective_max]):
+                if not self.rate_limiter.can_make_call():
+                    rate_limited_count = effective_max - i
+                    logger.warning(f"⚠️ Rate limit reached during bulk analysis. Skipping {rate_limited_count} analyses")
+                    break
+                
                 analysis = self.analyze_threat(alert)
                 individual_analyses.append({
                     'alert_id': alert.get('id'),
                     'ip': alert.get('ip'),
                     'analysis': analysis
                 })
+                
+                # Small delay between API calls to avoid hitting rate limits
+                time.sleep(0.5)
             
             # Create summary analysis
             summary = self._create_bulk_summary(alerts, individual_analyses)
@@ -315,7 +403,12 @@ Focus on providing actionable insights and clear explanations that both technica
                 'individual_analyses': individual_analyses,
                 'summary': summary,
                 'total_alerts': len(alerts),
-                'analyzed_count': len(individual_analyses)
+                'analyzed_count': len(individual_analyses),
+                'rate_limited_count': rate_limited_count,
+                'rate_limit_status': {
+                    'calls_remaining': max(0, self.rate_limiter.max_calls - len(self.rate_limiter.calls)),
+                    'reset_time': self.rate_limiter.wait_time()
+                }
             }
             
         except Exception as e:
@@ -383,6 +476,30 @@ Focus on providing actionable insights and clear explanations that both technica
         except Exception as e:
             logger.error(f"Failed to list models: {e}")
             return []
+    
+    def _get_cached_analysis(self, cache_key: str) -> Optional[dict]:
+        """Get cached analysis if still valid"""
+        if cache_key in self.analysis_cache:
+            cached_data = self.analysis_cache[cache_key]
+            if datetime.utcnow() - cached_data['timestamp'] < timedelta(seconds=self.cache_ttl):
+                return cached_data['analysis']
+            else:
+                # Remove expired cache
+                del self.analysis_cache[cache_key]
+        return None
+    
+    def _cache_analysis(self, cache_key: str, analysis: dict):
+        """Cache analysis result"""
+        self.analysis_cache[cache_key] = {
+            'analysis': analysis,
+            'timestamp': datetime.utcnow()
+        }
+        
+        # Clean old cache entries (keep last 50)
+        if len(self.analysis_cache) > 50:
+            oldest_key = min(self.analysis_cache.keys(), 
+                           key=lambda k: self.analysis_cache[k]['timestamp'])
+            del self.analysis_cache[oldest_key]
 
     def get_threat_intelligence(self, ip: str) -> dict:
         """Get AI-powered threat intelligence for an IP address"""

@@ -509,6 +509,9 @@
         }
         
         function refreshAlerts() {
+            // Clear analysis tracking before refresh
+            analyzingAlerts.clear();
+            analyzedAlerts.clear();
             location.reload();
         }
         
@@ -542,15 +545,42 @@
             }
         }
         
+        // Track which alerts are being analyzed to prevent duplicates
+        const analyzingAlerts = new Set();
+        const analyzedAlerts = new Set();
+        
         // Load AI analysis for each alert
         async function loadAIAnalysis(alertId) {
+            // Prevent duplicate analysis requests
+            if (analyzingAlerts.has(alertId) || analyzedAlerts.has(alertId)) {
+                console.log(`Skipping duplicate analysis for alert ${alertId}`);
+                return;
+            }
+            
             const cell = document.querySelector(`.ai-analysis-cell[data-alert-id="${alertId}"]`);
             if (!cell) return;
+            
+            // Check if already has analysis content (look for actual analysis, not just loading states)
+            const existingContent = cell.querySelector('.ai-content');
+            if (existingContent) {
+                const hasRealAnalysis = existingContent.innerHTML.includes('Risk:') || 
+                                       existingContent.innerHTML.includes('bg-danger') ||
+                                       existingContent.innerHTML.includes('bg-warning') ||
+                                       existingContent.innerHTML.includes('bg-info') ||
+                                       existingContent.innerHTML.includes('bg-success');
+                
+                if (hasRealAnalysis) {
+                    console.log(`Alert ${alertId} already has complete AI analysis, skipping`);
+                    analyzedAlerts.add(alertId);
+                    return;
+                }
+            }
             
             const spinner = cell.querySelector('.spinner-border');
             const content = cell.querySelector('.ai-content');
             
             try {
+                analyzingAlerts.add(alertId);
                 spinner.style.display = 'inline-block';
                 
                 const response = await fetch(`/api/ai/analyze/${alertId}`);
@@ -580,13 +610,25 @@
                         </div>
                     `;
                 } else {
-                    content.innerHTML = '<span class="badge bg-secondary"><i class="bi bi-exclamation-triangle"></i> AI Error</span>';
+                    // Check if it's a rate limit or fallback analysis
+                    if (data.analysis && data.analysis.rate_limited) {
+                        content.innerHTML = '<span class="badge bg-warning"><i class="bi bi-clock"></i> Rate Limited</span>';
+                    } else {
+                        content.innerHTML = '<span class="badge bg-secondary"><i class="bi bi-exclamation-triangle"></i> AI Error</span>';
+                    }
                 }
             } catch (error) {
                 console.error('AI analysis error:', error);
-                content.innerHTML = '<span class="badge bg-secondary"><i class="bi bi-x-circle"></i> AI Unavailable</span>';
+                // Check if it's a rate limit error
+                if (error.message && error.message.includes('429')) {
+                    content.innerHTML = '<span class="badge bg-warning"><i class="bi bi-hourglass-split"></i> Rate Limited</span>';
+                } else {
+                    content.innerHTML = '<span class="badge bg-secondary"><i class="bi bi-x-circle"></i> AI Unavailable</span>';
+                }
             } finally {
                 spinner.style.display = 'none';
+                analyzingAlerts.delete(alertId);
+                analyzedAlerts.add(alertId);
             }
         }
         
@@ -726,13 +768,17 @@
             quickFilter.value = 'custom';
             {% endif %}
             
-            // Load AI analysis for all visible alerts
+            // Load AI analysis for all visible alerts (with better rate limiting)
             const alertRows = document.querySelectorAll('tr[data-alert-id]');
-            alertRows.forEach(row => {
+            console.log(`Found ${alertRows.length} alerts to analyze`);
+            
+            alertRows.forEach((row, index) => {
                 const alertId = row.dataset.alertId;
-                if (alertId) {
-                    // Delay loading to spread out API calls
-                    setTimeout(() => loadAIAnalysis(alertId), Math.random() * 2000);
+                if (alertId && !analyzedAlerts.has(alertId) && !analyzingAlerts.has(alertId)) {
+                    // Reduced delays: 1 second apart + small jitter to stay within rate limits
+                    const delay = index * 1000 + Math.random() * 500; // 1 second apart + jitter
+                    console.log(`Scheduling AI analysis for alert ${alertId} in ${delay}ms`);
+                    setTimeout(() => loadAIAnalysis(alertId), delay);
                 }
             });
         });

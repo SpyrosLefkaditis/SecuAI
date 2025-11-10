@@ -39,7 +39,70 @@ PROTECTED_IPS = [
 def simulate_block(ip: str) -> Dict[str, Any]:
     """
     Simulate blocking an IP address (safe mode)
-    
+    TemplateSyntaxError
+jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'endif'.
+
+Traceback (most recent call last)
+File "/home/lefka/SecuAI/app.py", line 75, in dashboard
+return render_template('index.html', stats=stats, alerts=recent_alerts, blocks=recent_blocks)
+File "/home/lefka/.local/lib/python3.10/site-packages/flask/templating.py", line 150, in render_template
+template = app.jinja_env.get_or_select_template(template_name_or_list)
+File "/home/lefka/.local/lib/python3.10/site-packages/jinja2/environment.py", line 1081, in get_or_select_template
+return self.get_template(template_name_or_list, parent, globals)
+File "/home/lefka/.local/lib/python3.10/site-packages/jinja2/environment.py", line 1010, in get_template
+return self._load_template(name, globals)
+File "/home/lefka/.local/lib/python3.10/site-packages/jinja2/environment.py", line 969, in _load_template
+template = self.loader.load(self, name, self.make_globals(globals))
+File "/home/lefka/.local/lib/python3.10/site-packages/jinja2/loaders.py", line 138, in load
+code = environment.compile(source, name, filename)
+File "/home/lefka/.local/lib/python3.10/site-packages/jinja2/environment.py", line 768, in compile
+self.handle_exception(source=source_hint)
+File "/home/lefka/.local/lib/python3.10/site-packages/jinja2/environment.py", line 936, in handle_exception
+raise rewrite_traceback_stack(source=source)
+File "/home/lefka/SecuAI/templates/index.html", line 64, in template
+{% endif %}
+During handling of the above exception, another exception occurred:
+File "/home/lefka/.local/lib/python3.10/site-packages/flask/app.py", line 2213, in __call__
+return self.wsgi_app(environ, start_response)
+File "/home/lefka/.local/lib/python3.10/site-packages/flask/app.py", line 2193, in wsgi_app
+response = self.handle_exception(e)
+File "/home/lefka/.local/lib/python3.10/site-packages/flask/app.py", line 2190, in wsgi_app
+response = self.full_dispatch_request()
+File "/home/lefka/.local/lib/python3.10/site-packages/flask/app.py", line 1486, in full_dispatch_request
+rv = self.handle_user_exception(e)
+File "/home/lefka/.local/lib/python3.10/site-packages/flask/app.py", line 1484, in full_dispatch_request
+rv = self.dispatch_request()
+File "/home/lefka/.local/lib/python3.10/site-packages/flask/app.py", line 1469, in dispatch_request
+return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
+File "/home/lefka/.local/lib/python3.10/site-packages/flask_login/utils.py", line 290, in decorated_view
+return current_app.ensure_sync(func)(*args, **kwargs)
+File "/home/lefka/SecuAI/app.py", line 78, in dashboard
+return render_template('index.html', stats={'alerts_today': 0, 'critical_alerts': 0, 'blocked_ips': 0}, alerts=[], blocks=[])
+File "/home/lefka/.local/lib/python3.10/site-packages/flask/templating.py", line 150, in render_template
+template = app.jinja_env.get_or_select_template(template_name_or_list)
+File "/home/lefka/.local/lib/python3.10/site-packages/jinja2/environment.py", line 1081, in get_or_select_template
+return self.get_template(template_name_or_list, parent, globals)
+File "/home/lefka/.local/lib/python3.10/site-packages/jinja2/environment.py", line 1010, in get_template
+return self._load_template(name, globals)
+File "/home/lefka/.local/lib/python3.10/site-packages/jinja2/environment.py", line 969, in _load_template
+template = self.loader.load(self, name, self.make_globals(globals))
+File "/home/lefka/.local/lib/python3.10/site-packages/jinja2/loaders.py", line 138, in load
+code = environment.compile(source, name, filename)
+File "/home/lefka/.local/lib/python3.10/site-packages/jinja2/environment.py", line 768, in compile
+self.handle_exception(source=source_hint)
+File "/home/lefka/.local/lib/python3.10/site-packages/jinja2/environment.py", line 936, in handle_exception
+raise rewrite_traceback_stack(source=source)
+File "/home/lefka/SecuAI/templates/index.html", line 64, in template
+{% endif %}
+jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'endif'.
+The debugger caught an exception in your WSGI application. You can now look at the traceback which led to the error.
+To switch between the interactive traceback and the plaintext one, you can click on the "Traceback" headline. From the text traceback you can also create a paste of it. For code execution mouse-over the frame you want to debug and click on the console icon on the right side.
+
+You can execute arbitrary Python code in the stack frames and there are some extra helpers available for introspection:
+
+dump() shows all variables in the frame
+dump(obj) dumps all that's known about the object
+Brought to you by DON'T PANIC, your friendly Werkzeug powered traceback interpreter.
     Args:
         ip (str): IP address to simulate blocking
         

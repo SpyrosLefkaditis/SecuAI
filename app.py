@@ -110,24 +110,41 @@ def start_log_monitor():
 def dashboard():
     """Main dashboard page - requires authentication"""
     try:
-        # Get dashboard statistics
-        alerts_today = Alert.query.filter(
-            Alert.created_at >= datetime.now().replace(hour=0, minute=0, second=0)
+        # Get dashboard statistics for last 24 hours
+        twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
+        
+        # Alerts in last 24 hours
+        alerts_last_24h = Alert.query.filter(
+            Alert.created_at >= twenty_four_hours_ago
         ).count()
         
-        critical_alerts = Alert.query.filter(Alert.confidence >= 0.8).count()
+        # Critical alerts (high confidence) in last 24 hours
+        critical_alerts = Alert.query.filter(
+            Alert.created_at >= twenty_four_hours_ago,
+            Alert.confidence >= 0.8
+        ).count()
+        
+        # Active blocks
         blocked_ips = Block.query.filter(Block.is_active == True).count()
         
+        # Total unique attacking IPs in last 24 hours
+        unique_ips_query = db.session.query(Alert.ip).filter(
+            Alert.created_at >= twenty_four_hours_ago
+        ).distinct().count()
+        
         stats = {
-            'alerts_today': alerts_today,
+            'alerts_today': alerts_last_24h,
             'critical_alerts': critical_alerts,
-            'blocked_ips': blocked_ips
+            'blocked_ips': blocked_ips,
+            'unique_ips': unique_ips_query
         }
+        
+        logger.info(f"Dashboard stats (24h): {alerts_last_24h} alerts, {critical_alerts} critical, {blocked_ips} blocked, {unique_ips_query} unique IPs")
         
         return render_template('index.html', stats=stats)
     except Exception as e:
         logger.error(f"Dashboard error: {e}")
-        return render_template('index.html', stats={'alerts_today': 0, 'critical_alerts': 0, 'blocked_ips': 0})
+        return render_template('index.html', stats={'alerts_today': 0, 'critical_alerts': 0, 'blocked_ips': 0, 'unique_ips': 0})
 
 
 @app.route('/api/analyze', methods=['POST'])
@@ -1060,4 +1077,6 @@ def create_app():
 if __name__ == '__main__':
     # Create and run the app
     create_app()
-    app.run(host='0.0.0.0', port=5000, debug=config('DEBUG', default=True, cast=bool))
+    # Use PORT env variable for Cloud Run compatibility (default 8080)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=config('DEBUG', default=False, cast=bool))
