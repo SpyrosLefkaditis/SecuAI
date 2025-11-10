@@ -1050,6 +1050,18 @@ def initialize_monitor():
         monitor_started = True
         logger.info("🚀 SecuAI initialization complete")
 
+# Initialize database on startup (works with Gunicorn too)
+with app.app_context():
+    db.create_all()
+    
+    # Create default admin user if none exists
+    if not User.query.first():
+        admin = User(email='admin@secai.local', is_admin=True)
+        admin.set_password('admin123')
+        db.session.add(admin)
+        db.session.commit()
+        logger.info("✅ Default admin user created (admin@secai.local / admin123)")
+
 # Initialize on first route access
 @app.before_request
 def before_request():
@@ -1058,17 +1070,8 @@ def before_request():
 
 def create_app():
     """Application factory function"""
+    # Database already initialized above
     with app.app_context():
-        db.create_all()
-        
-        # Create default admin user if none exists
-        if not User.query.first():
-            admin = User(email='admin@secai.local', is_admin=True)
-            admin.set_password('admin123')
-            db.session.add(admin)
-            db.session.commit()
-            logger.info("✅ Default admin user created (admin@secai.local / admin123)")
-        
         # Initialize monitor immediately when running directly
         initialize_monitor()
     
