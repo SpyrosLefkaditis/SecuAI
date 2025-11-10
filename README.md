@@ -13,7 +13,10 @@
 
 ## 🎯 Project Overview
 
-**SecuAI** revolutionizes security monitoring by combining traditional rule-based detection with **Google Gemini 2.0 Flash AI** to transform raw security logs into intelligent, actionable insights. 
+**SecuAI** revolutionizes security monitoring by combining traditional rule-based detection with **Google Gemini 2.0 Flash AI** to transform raw security logs into intelligent, actionable insights.
+
+![SecuAI Architecture](architecture-diagram.png)
+*AI-powered security monitoring architecture deployed on Google Cloud Run* 
 
 ### 🧠 The AI Advantage
 
@@ -346,6 +349,26 @@ pytest tests/test_analyzer.py -v      # Analysis engine tests
 pytest tests/test_web.py -v           # Web application tests  
 pytest tests/test_blocker.py -v       # Blocking system tests
 ```
+
+### Simulate Realistic Attacks
+
+SecuAI includes a threat simulator to generate realistic attack traffic for testing:
+
+```bash
+# Generate realistic attack traffic against local nginx server
+python threat_simulator.py
+
+# This will simulate:
+# - SQL injection attempts
+# - Directory traversal attacks  
+# - Admin panel scanning
+# - Brute force attempts
+# - Port scanning patterns
+
+# Then check the dashboard to see AI-powered analysis of detected threats!
+```
+
+**Note**: Make sure you have a local web server running (nginx, Apache, or Flask dev server) before running the simulator.
 
 ### Test Coverage
 
